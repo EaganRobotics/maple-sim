@@ -201,8 +201,6 @@ public abstract class Goal implements SimulatedArena.Simulatable {
         Rotation3d flippedDiff =
                 flipRotation(gamePiece.getPose3d().getRotation()).minus(pieceAngle);
 
-
-
         return new Rotation3d(Degrees.of(0), normalDiff.getMeasureZ(), normalDiff.getMeasureZ())
                                 .getMeasureAngle()
                                 .in(Units.Degrees)
