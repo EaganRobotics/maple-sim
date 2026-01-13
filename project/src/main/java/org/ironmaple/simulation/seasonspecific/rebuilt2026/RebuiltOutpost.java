@@ -19,16 +19,11 @@ import org.ironmaple.simulation.Goal;
  *
  * <h2>Simulates a <strong>OUTPOST</strong>s on the field.</h2>
  *
- * <p>
- * This class simulates a outpost on the field where fuel can be scored. It has
- * a store of fuel which can be added
+ * <p>This class simulates a outpost on the field where fuel can be scored. It has a store of fuel which can be added
  * too by scoring in it. This fuel can then be dumped via {@link #dump()} or
- * {@link Arena2026Rebuilt#outpostDump(boolean)}, thrown at the goal via
- * {@link #throwForGoal()} or
- * {@link Arena2026Rebuilt#outpostThrowForGoal(boolean)}, or thrown with
- * specific parameters via
- * {@link #throwFuel(Rotation2d, Angle, LinearVelocity)} or
- * {@link Arena2026Rebuilt#outpostThrow(boolean, Rotation2d,
+ * {@link Arena2026Rebuilt#outpostDump(boolean)}, thrown at the goal via {@link #throwForGoal()} or
+ * {@link Arena2026Rebuilt#outpostThrowForGoal(boolean)}, or thrown with specific parameters via
+ * {@link #throwFuel(Rotation2d, Angle, LinearVelocity)} or {@link Arena2026Rebuilt#outpostThrow(boolean, Rotation2d,
  * Angle, LinearVelocity)},
  */
 public class RebuiltOutpost extends Goal {
@@ -53,7 +48,7 @@ public class RebuiltOutpost extends Goal {
      *
      * <h2>Creates an outpost of the specified color.</h2>
      *
-     * @param arena  The host arena of this outpost.
+     * @param arena The host arena of this outpost.
      * @param isBlue Wether this is the blue outpost or the red one.
      */
     public RebuiltOutpost(Arena2026Rebuilt arena, boolean isBlue) {
@@ -130,13 +125,9 @@ public class RebuiltOutpost extends Goal {
      *
      * <h2>Attempts too throw a game piece at the specified goal.</h2>
      *
-     * <p>
-     * This method comes with variance built in (to simulate human inconsistency)
-     * and will therefore only hit about
-     * half the time. Additionally if the hub does not have game pieces stored this
-     * method will not do anything. If you
-     * would like to manually control how the human player throws game pieces use
-     * {@link #outpostThrow(boolean,
+     * <p>This method comes with variance built in (to simulate human inconsistency) and will therefore only hit about
+     * half the time. Additionally if the hub does not have game pieces stored this method will not do anything. If you
+     * would like to manually control how the human player throws game pieces use {@link #outpostThrow(boolean,
      * Rotation2d, Angle, LinearVelocity)}
      */
     public void throwForGoal() {
@@ -151,12 +142,9 @@ public class RebuiltOutpost extends Goal {
      *
      * <h2>Dumps game pieces from the specified outpost.</h2>
      *
-     * This function will dump up to 24 game pieces, dependent on how many game
-     * pieces are currently stored in the
-     * outpost. For more manual control of the game pieces in the outpost use
-     * {@link #outpostThrow(boolean, Rotation2d,
-     * Angle, LinearVelocity)}. To have a human player attempt to throw a game piece
-     * into the hub use
+     * This function will dump up to 24 game pieces, dependent on how many game pieces are currently stored in the
+     * outpost. For more manual control of the game pieces in the outpost use {@link #outpostThrow(boolean, Rotation2d,
+     * Angle, LinearVelocity)}. To have a human player attempt to throw a game piece into the hub use
      * {@link #outpostThrowForGoal(boolean)}.
      */
     public void dump() {
@@ -179,17 +167,13 @@ public class RebuiltOutpost extends Goal {
     /**
      *
      *
-     * <h2>Throws a game piece from the outpost at the specified angle and speed.
-     * </h2>
+     * <h2>Throws a game piece from the outpost at the specified angle and speed. </h2>
      *
-     * <p>
-     * This method comes with variance built in (to simulate human inconsistency).
-     * Additionally if the hub does not
-     * have game pieces stored this method will not do anything. If you would like
-     * to have the human player throw at the
+     * <p>This method comes with variance built in (to simulate human inconsistency). Additionally if the hub does not
+     * have game pieces stored this method will not do anything. If you would like to have the human player throw at the
      * hub use {@link #outpostThrowForGoal(boolean)}
      *
-     * @param throwYaw   The yaw at which too throw the ball.
+     * @param throwYaw The yaw at which too throw the ball.
      * @param throwPitch The pitch at which too throw the ball.
      */
     public void throwFuel(Rotation2d yaw, Angle pitch, LinearVelocity speed) {

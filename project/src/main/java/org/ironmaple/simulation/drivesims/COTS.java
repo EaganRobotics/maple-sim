@@ -13,27 +13,39 @@ public class COTS {
      *
      * <h2>Stores the coefficient of friction of some common used wheels.</h2>
      *
-     * <p>Data comes from <a href='https://www.chiefdelphi.com/t/spectrum-3847-build-blog-2024/447471/217'>Spectrum
+     * <p>
+     * Data comes from <a href=
+     * 'https://www.chiefdelphi.com/t/spectrum-3847-build-blog-2024/447471/217'>Spectrum
      * 3847's Build Blog</a>.
      */
     public enum WHEELS {
-        /** <a href='https://www.vexrobotics.com/colsonperforma.html'>Colsons Wheels.</a> */
+        /**
+         * <a href='https://www.vexrobotics.com/colsonperforma.html'>Colsons Wheels.</a>
+         */
         COLSONS(0.899),
         /**
          * Default Neoprene Treads for <a
-         * href='https://www.swervedrivespecialties.com/products/mk4i-swerve-module'>Mark4 Modules</a>
+         * href=
+         * 'https://www.swervedrivespecialties.com/products/mk4i-swerve-module'>Mark4
+         * Modules</a>
          */
         DEFAULT_NEOPRENE_TREAD(1.426),
         /**
-         * <a href='https://www.andymark.com/products/blue-nitrile-roughtop-tread-1-in-wide-10-ft-long'>Blue Nitrile
+         * <a href=
+         * 'https://www.andymark.com/products/blue-nitrile-roughtop-tread-1-in-wide-10-ft-long'>Blue
+         * Nitrile
          * Tread from AndyMark.</a>
          */
         BLUE_NITRILE_TREAD(1.542),
-        /** <a href='https://www.vexrobotics.com/217-9064.html'>Vex Grip V2 Wheel.</a> */
+        /**
+         * <a href='https://www.vexrobotics.com/217-9064.html'>Vex Grip V2 Wheel.</a>
+         */
         VEX_GRIP_V2(1.916),
         /**
          * <a href='https://www.thebluealliance.com/team/88'>Team 88</a>'s <a
-         * href='https://www.chiefdelphi.com/t/tpu90a-grippy-tire-cad-published-finally/438075'>TPU90A Grippy Tire</a>
+         * href=
+         * 'https://www.chiefdelphi.com/t/tpu90a-grippy-tire-cad-published-finally/438075'>TPU90A
+         * Grippy Tire</a>
          */
         SLS_PRINTED_WHEELS(2.106);
 
@@ -45,7 +57,9 @@ public class COTS {
     }
 
     /**
-     * creates a <a href="https://www.swervedrivespecialties.com/collections/kits/products/mk4-swerve-module">SDS Mark4
+     * creates a <a href=
+     * "https://www.swervedrivespecialties.com/collections/kits/products/mk4-swerve-module">SDS
+     * Mark4
      * Swerve Module</a> for simulation
      */
     public static SwerveModuleSimulationConfig ofMark4(
@@ -69,7 +83,8 @@ public class COTS {
     }
 
     /**
-     * creates a <a href="https://www.swervedrivespecialties.com/collections/kits/products/mk4i-swerve-module">SDS
+     * creates a <a href=
+     * "https://www.swervedrivespecialties.com/collections/kits/products/mk4i-swerve-module">SDS
      * Mark4-i Swerve Module</a> for simulation
      */
     public static SwerveModuleSimulationConfig ofMark4i(
@@ -93,7 +108,9 @@ public class COTS {
     }
 
     /**
-     * creates a <a href="https://www.swervedrivespecialties.com/products/mk4n-swerve-module">SDS Mark4-n Swerve
+     * creates a <a href=
+     * "https://www.swervedrivespecialties.com/products/mk4n-swerve-module">SDS
+     * Mark4-n Swerve
      * Module</a> for simulation
      */
     public static SwerveModuleSimulationConfig ofMark4n(
@@ -116,17 +133,18 @@ public class COTS {
     }
 
     /**
-     * creates a <a href="https://wcproducts.com/collections/gearboxes/products/swerve-x">WCP SwerveX Swerve Module</a>
+     * creates a
+     * <a href="https://wcproducts.com/collections/gearboxes/products/swerve-x">WCP
+     * SwerveX Swerve Module</a>
      * for simulation
      */
     public static SwerveModuleSimulationConfig ofSwerveX(
             DCMotor driveMotor, DCMotor steerMotor, double wheelCOF, int gearRatioLevel, double firstStageRatio) {
-        double secondStageRatio =
-                switch (gearRatioLevel) {
-                    case 1 -> 26.0 / 20.0;
-                    case 2, 3 -> 28.0 / 18.0;
-                    default -> throw new IllegalStateException("Unknown gearing level: " + gearRatioLevel);
-                };
+        double secondStageRatio = switch (gearRatioLevel) {
+            case 1 -> 26.0 / 20.0;
+            case 2, 3 -> 28.0 / 18.0;
+            default -> throw new IllegalStateException("Unknown gearing level: " + gearRatioLevel);
+        };
         return new SwerveModuleSimulationConfig(
                 driveMotor,
                 steerMotor,
@@ -140,10 +158,13 @@ public class COTS {
     }
 
     /**
-     * creates a <a href="https://wcproducts.com/collections/gearboxes/products/swerve-x-flipped">WCP SwerveX Flipped
+     * creates a <a href=
+     * "https://wcproducts.com/collections/gearboxes/products/swerve-x-flipped">WCP
+     * SwerveX Flipped
      * Swerve Module</a> for simulation
      *
-     * <p>X1 Ratios are gearRatioLevel 1-3 <br>
+     * <p>
+     * X1 Ratios are gearRatioLevel 1-3 <br>
      * X2 Ratios are gearRatioLevel 4-6 <br>
      * X3 Ratios are gearRatioLevel 7-9
      */
@@ -184,7 +205,9 @@ public class COTS {
     }
 
     /**
-     * creates a <a href="https://wcproducts.com/collections/gearboxes/products/swerve-xs">WCP SwerveXS Swerve
+     * creates a
+     * <a href="https://wcproducts.com/collections/gearboxes/products/swerve-xs">WCP
+     * SwerveXS Swerve
      * Module</a> for simulation
      */
     public static SwerveModuleSimulationConfig ofSwerveXS(
@@ -218,10 +241,13 @@ public class COTS {
     }
 
     /**
-     * creates a <a href="https://wcproducts.com/collections/gearboxes/products/swerve-x2">WCP SwerveX2 Swerve
+     * creates a
+     * <a href="https://wcproducts.com/collections/gearboxes/products/swerve-x2">WCP
+     * SwerveX2 Swerve
      * Module</a> for simulation
      *
-     * <p>X1 Ratios are gearRatioLevel 1-3 <br>
+     * <p>
+     * X1 Ratios are gearRatioLevel 1-3 <br>
      * X2 Ratios are gearRatioLevel 4-6 <br>
      * X3 Ratios are gearRatioLevel 7-9 <br>
      * X4 Ratios are gearRatioLevel 10-12
@@ -269,7 +295,9 @@ public class COTS {
     }
 
     /**
-     * creates a <a href="https://wcproducts.com/collections/gearboxes/products/swerve-x2-s">WCP SwerveX2S Swerve
+     * creates a <a href=
+     * "https://wcproducts.com/collections/gearboxes/products/swerve-x2-s">WCP
+     * SwerveX2S Swerve
      * Module</a> for simulation
      */
     public static SwerveModuleSimulationConfig ofSwerveX2S(
@@ -309,9 +337,11 @@ public class COTS {
     }
 
     /**
-     * Creates a <a href="https://www.revrobotics.com/rev-21-3005/">REV MAXSwerve swerve module</a> for simulation
+     * Creates a <a href="https://www.revrobotics.com/rev-21-3005/">REV MAXSwerve
+     * swerve module</a> for simulation
      *
-     * <p>Base Kit ratios are gearRatioLevel 1-3<br>
+     * <p>
+     * Base Kit ratios are gearRatioLevel 1-3<br>
      * Gear Ratio Upgrade Kit ratios are gearRatioLevel 4-8
      */
     public static SwerveModuleSimulationConfig ofMAXSwerve(
@@ -339,7 +369,8 @@ public class COTS {
     }
 
     /**
-     * Creates a <a href="https://www.thethriftybot.com/products/thrifty-swerve">TTB Thrifty Swerve swerve module</a>
+     * Creates a <a href="https://www.thethriftybot.com/products/thrifty-swerve">TTB
+     * Thrifty Swerve swerve module</a>
      * for simulation
      */
     public static SwerveModuleSimulationConfig ofThriftySwerve(
@@ -365,9 +396,8 @@ public class COTS {
     }
 
     /**
-     *
-     *
-     * <h2>Creates the Simulation for a <a href="https://store.ctr-electronics.com/pigeon-2/">CTRE Pigeon 2 IMU</a>.
+     * <h2>Creates the Simulation for a
+     * <a href="https://store.ctr-electronics.com/pigeon-2/">CTRE Pigeon 2 IMU</a>.
      * </h2>
      *
      * @return a gyro simulation factory configured for the Pigeon 2 IMU
@@ -375,15 +405,15 @@ public class COTS {
     public static Supplier<GyroSimulation> ofPigeon2() {
         /*
          * user manual of pigeon 2:
-         * https://store.ctr-electronics.com/content/user-manual/Pigeon2%20User's%20Guide.pdf
-         * */
+         * https://store.ctr-electronics.com/content/user-manual/Pigeon2%20User's%
+         * 20Guide.pdf
+         */
         return () -> new GyroSimulation(0.5, 0.02);
     }
 
     /**
-     *
-     *
-     * <h2>Creates the Simulation for a <a href="https://pdocs.kauailabs.com/navx-mxp/">navX2-MXP IMU</a>.</h2>
+     * <h2>Creates the Simulation for a
+     * <a href="https://pdocs.kauailabs.com/navx-mxp/">navX2-MXP IMU</a>.</h2>
      *
      * @return a gyro simulation factory configured for the navX2-MXP IMU
      */
@@ -392,8 +422,6 @@ public class COTS {
     }
 
     /**
-     *
-     *
      * <h2>Creates the Simulation for a Generic, Low-Accuracy IMU.</h2>
      *
      * @return a gyro simulation factory configured for a generic low-accuracy IMU

@@ -33,16 +33,12 @@ public class FieldMirroringUtils {
 
     public static Pose3d flip(Pose3d toFlip) {
         var flipped = flip(toFlip.getTranslation().toTranslation2d());
-        return new Pose3d(
-                flipped.getX(),
-                flipped.getY(),
-                toFlip.getZ(),
-                toFlip.getRotation());
+        return new Pose3d(flipped.getX(), flipped.getY(), toFlip.getZ(), toFlip.getRotation());
     }
 
     public static Translation3d toCurrentAllianceTranslation(Translation3d translation3dAtBlueSide) {
-        final Translation2d translation3dAtCurrentAlliance = toCurrentAllianceTranslation(
-                translation3dAtBlueSide.toTranslation2d());
+        final Translation2d translation3dAtCurrentAlliance =
+                toCurrentAllianceTranslation(translation3dAtBlueSide.toTranslation2d());
         if (isSidePresentedAsRed())
             return new Translation3d(
                     translation3dAtCurrentAlliance.getX(),

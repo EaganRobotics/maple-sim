@@ -3,6 +3,7 @@ package org.ironmaple.simulation.seasonspecific.rebuilt2026;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.MetersPerSecond;
+import static org.ironmaple.utils.FieldMirroringUtils.flip;
 
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.networktables.NetworkTableInstance;
@@ -17,32 +18,30 @@ import org.ironmaple.utils.FieldMirroringUtils;
  *
  * <h2>Simulates a <strong>HUB</strong>s on the field.</h2>
  *
- * <p>
- * This class simulates the <strong>HUB</strong>s on the field where
- * <strong>FUEL</strong>s can be scored. Whether it
- * is active can be determined by using
- * {@link Arena2026Rebuilt#isActive(boolean)}
+ * <p>This class simulates the <strong>HUB</strong>s on the field where <strong>FUEL</strong>s can be scored. Whether it
+ * is active can be determined by using {@link Arena2026Rebuilt#isActive(boolean)}
  */
 public class RebuiltHub extends Goal {
 
-    protected static final Translation2d blueHubPos = new Translation2d(4.626, 4.0);
-    protected static final Translation2d redHubPos = FieldMirroringUtils.flip(blueHubPos);
+    private static final Translation2d blueHubPose = new Translation2d(4.626, 4.0);
+    private static final Translation2d redHubPose = flip(blueHubPose);
 
-    protected static final Translation3d blueHubPose = new Translation3d(blueHubPos.getX(), blueHubPos.getY(), 1.5748);
-    protected static final Translation3d redHubPose = new Translation3d(redHubPos.getX(), redHubPos.getY(), 1.5748);
+    public static final Translation3d BLUE_HUB_POS = new Translation3d(blueHubPose.getX(), blueHubPose.getY(), 1.5748);
+    public static final Translation3d RED_HUB_POS = new Translation3d(redHubPose.getX(), redHubPose.getY(), 1.5748);
+
     protected static final Pose3d[] blueShootPoses = {
-            new Pose3d(
-                    blueHubPose.plus(new Translation3d(0.5969, 0.447675, -0.5)),
-                    new Rotation3d(Degrees.of(0), Degrees.of(-15), Degrees.of(33.75))),
-            new Pose3d(
-                    blueHubPose.plus(new Translation3d(0.5969, 0.149225, -0.5)),
-                    new Rotation3d(Degrees.of(0), Degrees.of(-15), Degrees.of(11.25))),
-            new Pose3d(
-                    blueHubPose.plus(new Translation3d(0.5969, -0.149225, -0.5)),
-                    new Rotation3d(Degrees.of(0), Degrees.of(-15), Degrees.of(11.25))),
-            new Pose3d(
-                    blueHubPose.plus(new Translation3d(0.5969, -0.447675, -0.5)),
-                    new Rotation3d(Degrees.of(0), Degrees.of(-15), Degrees.of(-33.75)))
+        new Pose3d(
+                BLUE_HUB_POS.plus(new Translation3d(0.5969, 0.447675, -0.5)),
+                new Rotation3d(Degrees.of(0), Degrees.of(-15), Degrees.of(33.75))),
+        new Pose3d(
+                BLUE_HUB_POS.plus(new Translation3d(0.5969, 0.149225, -0.5)),
+                new Rotation3d(Degrees.of(0), Degrees.of(-15), Degrees.of(11.25))),
+        new Pose3d(
+                BLUE_HUB_POS.plus(new Translation3d(0.5969, -0.149225, -0.5)),
+                new Rotation3d(Degrees.of(0), Degrees.of(-15), Degrees.of(11.25))),
+        new Pose3d(
+                BLUE_HUB_POS.plus(new Translation3d(0.5969, -0.447675, -0.5)),
+                new Rotation3d(Degrees.of(0), Degrees.of(-15), Degrees.of(-33.75)))
     };
 
     public static final double GoalRadius = 0.5969;
@@ -63,7 +62,7 @@ public class RebuiltHub extends Goal {
      *
      * <h2>Creates an HUB of the specified color.</h2>
      *
-     * @param arena  The host arena of this HUB.
+     * @param arena The host arena of this HUB.
      * @param isBlue Wether this is the blue HUB or the red one.
      */
     public RebuiltHub(Arena2026Rebuilt arena, boolean isBlue) {
@@ -73,7 +72,7 @@ public class RebuiltHub extends Goal {
                 Inches.of(47),
                 Inches.of(10),
                 "Fuel",
-                isBlue ? blueHubPose : redHubPose,
+                isBlue ? BLUE_HUB_POS : RED_HUB_POS,
                 isBlue,
                 false);
 
@@ -95,8 +94,9 @@ public class RebuiltHub extends Goal {
                 + Math.pow(GamePiece.getPose3d().getY() - position.getY(), 2)
                 + Math.pow(GamePiece.getPose3d().getZ() - position.getZ(), 2));
         return Math.pow(GamePiece.getPose3d().getX() - position.getX(), 2)
-                + Math.pow(GamePiece.getPose3d().getY() - position.getY(), 2)
-                + Math.pow(GamePiece.getPose3d().getZ() - position.getZ(), 2) < Math.pow(GoalRadius, 2);
+                        + Math.pow(GamePiece.getPose3d().getY() - position.getY(), 2)
+                        + Math.pow(GamePiece.getPose3d().getZ() - position.getZ(), 2)
+                < Math.pow(GoalRadius, 2);
     }
 
     @Override
