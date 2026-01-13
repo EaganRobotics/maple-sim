@@ -303,6 +303,15 @@ public class Arena2026Rebuilt extends SimulatedArena {
             }
         } else {
             clock = 25;
+            String fmsMessage = DriverStation.getGameSpecificMessage();
+            if (fmsMessage != null) {
+                // 'B' means Blue is inactive first (Active in Shifts 2 & 4), so Red starts
+                // Active (blueIsOnClock = false).
+                if (fmsMessage.contains("B")) blueIsOnClock = false;
+                // 'R' means Red is inactive first, so Blue starts Active (blueIsOnClock =
+                // true).
+                else if (fmsMessage.contains("R")) blueIsOnClock = true;
+            }
         }
 
         phaseClockPublisher.set((clock));
