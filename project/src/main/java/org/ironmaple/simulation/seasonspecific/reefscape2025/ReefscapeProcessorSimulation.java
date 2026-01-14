@@ -60,24 +60,28 @@ public class ReefscapeProcessorSimulation extends Goal {
 
         if (isBlue) {
             arena.addToScore(isBlue, 6);
-            this.arena.addGamePieceProjectile(new ReefscapeAlgaeOnFly(
+            var proj1 = new ReefscapeAlgaeOnFly(
                     blueProcessorLaunchPose.toTranslation2d(),
                     new Translation2d(),
                     new ChassisSpeeds(),
                     Rotation2d.fromDegrees(45),
                     Meters.of(1.7),
                     MetersPerSecond.of(7),
-                    Degrees.of(45)));
+                    Degrees.of(45));
+            this.arena.getGamePieceManager().spawnInFlight(proj1);
+            proj1.launch();
         } else {
             arena.addToScore(isBlue, 6);
-            this.arena.addGamePieceProjectile(new ReefscapeAlgaeOnFly(
+            var proj2 = new ReefscapeAlgaeOnFly(
                     redProcessorLaunchPose.toTranslation2d(),
                     new Translation2d(),
                     new ChassisSpeeds(),
                     Rotation2d.fromDegrees(-135),
                     Meters.of(1.7),
                     MetersPerSecond.of(7),
-                    Degrees.of(45)));
+                    Degrees.of(45));
+            this.arena.getGamePieceManager().spawnInFlight(proj2);
+            proj2.launch();
         }
     }
 

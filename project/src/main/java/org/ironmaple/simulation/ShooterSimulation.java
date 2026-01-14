@@ -276,7 +276,8 @@ public class ShooterSimulation implements SimulatedArena.Simulatable {
                 shooterPoseWorld.getRotation().plus(new Rotation3d(0, -pitchRad, 0)) // Visual rotation
                 );
 
-        SimulatedArena.getInstance().addGamePieceProjectile(projectile);
+        SimulatedArena.getInstance().getGamePieceManager().spawnInFlight(projectile);
+        projectile.launch();
         onShootCallback.accept(projectile);
     }
 

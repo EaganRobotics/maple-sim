@@ -24,13 +24,16 @@ public class CrescendoHumanPlayerSimulation implements SimulatedArena.Simulatabl
         if (Timer.getFPGATimestamp() - previousThrowTimeSeconds < 1) return;
 
         final Translation2d sourcePosition = toCurrentAllianceTranslation(BLUE_SOURCE_POSITION);
-        /* if there is any game-piece 0.5 meters within the human player station, we don't throw a new note */
+        /*
+         * if there is any game-piece 0.5 meters within the human player station, we
+         * don't throw a new note
+         */
         for (GamePieceOnFieldSimulation gamePiece : arena.gamePiecesOnField())
             if (gamePiece instanceof CrescendoNoteOnField
                     && gamePiece.getPoseOnField().getTranslation().getDistance(sourcePosition) < 1) return;
 
         /* otherwise, place a note */
-        arena.addGamePiece(new CrescendoNoteOnField(sourcePosition));
+        arena.getGamePieceManager().spawnOnField(new CrescendoNoteOnField(sourcePosition));
         previousThrowTimeSeconds = Timer.getFPGATimestamp();
     }
 }

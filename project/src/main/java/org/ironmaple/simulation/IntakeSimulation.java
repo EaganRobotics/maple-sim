@@ -461,10 +461,21 @@ public class IntakeSimulation extends BodyFixture {
             GamePieceOnFieldSimulation gamePiece = gamePiecesToRemove.poll();
             gamePiece.onIntake(this.targetedGamePieceType);
 
-            // Notify manager of transition from field to intake
-            arena.getGamePieceManager().createVirtual(this.targetedGamePieceType, GamePieceState.IN_INTAKE, this);
+            // Find the managed piece and transition it from ON_FIELD to IN_INTAKE
+            var manager = arena.getGamePieceManager();
+            var matching = manager.getAll().stream()
+                    .filter(m -> m.getUnderlying() == gamePiece)
+                    .findFirst();
 
-            arena.removeGamePiece(gamePiece);
+            if (matching.isPresent()) {
+                var managed = matching.get();
+                managed.setState(GamePieceState.IN_INTAKE);
+                managed.setOwner(this);
+                managed.setUnderlying(null); // No longer physics-backed
+            }
+
+            // Remove from physics world only (manager already has the piece)
+            manager.getPhysicsWorld().removeBody(gamePiece);
         }
     }
 

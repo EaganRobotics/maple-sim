@@ -82,17 +82,19 @@ public class ReefscapeCoralOnFly extends GamePieceProjectile {
     @Override
     public void addGamePieceAfterTouchGround(SimulatedArena simulatedArena) {
         if (!super.becomesGamePieceOnGroundAfterTouchGround) return;
-        simulatedArena.addGamePiece(new GamePieceOnFieldSimulation(
-                ReefscapeCoralOnField.REEFSCAPE_CORAL_INFO,
-                () -> Math.max(
-                        ReefscapeCoralOnField.REEFSCAPE_CORAL_INFO
-                                        .gamePieceHeight()
-                                        .in(Meters)
-                                / 2,
-                        getPositionAtTime(super.launchedTimer.get()).getZ()),
-                new Pose2d(
-                        getPositionAtTime(launchedTimer.get()).toTranslation2d(),
-                        initialLaunchingVelocityMPS.getAngle()),
-                super.initialLaunchingVelocityMPS));
+        simulatedArena
+                .getGamePieceManager()
+                .spawnOnField(new GamePieceOnFieldSimulation(
+                        ReefscapeCoralOnField.REEFSCAPE_CORAL_INFO,
+                        () -> Math.max(
+                                ReefscapeCoralOnField.REEFSCAPE_CORAL_INFO
+                                                .gamePieceHeight()
+                                                .in(Meters)
+                                        / 2,
+                                getPositionAtTime(super.launchedTimer.get()).getZ()),
+                        new Pose2d(
+                                getPositionAtTime(launchedTimer.get()).toTranslation2d(),
+                                initialLaunchingVelocityMPS.getAngle()),
+                        super.initialLaunchingVelocityMPS));
     }
 }

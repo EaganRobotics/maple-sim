@@ -2,15 +2,19 @@ package org.ironmaple.simulation.gamepieces;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.dyn4j.dynamics.Body;
+import org.dyn4j.world.World;
 
 /**
  *
@@ -25,12 +29,16 @@ import java.util.stream.Collectors;
  *   <li>Ownership tracking (field vs intake vs shooter vs goal)
  *   <li>Pose queries for rendering
  *   <li>Custom user lifecycle hooks
+ *   <li>Physics world integration for grounded pieces
  * </ul>
  */
 public class GamePieceManager {
 
     // Master registry - all pieces have a unique ID
     private final Map<UUID, ManagedGamePiece> allPieces = new ConcurrentHashMap<>();
+
+    // Physics world reference for adding/removing bodies
+    private World<Body> physicsWorld;
 
     // Callbacks
     private final List<BiConsumer<ManagedGamePiece, GamePieceState>> stateChangeCallbacks =
@@ -47,15 +55,41 @@ public class GamePieceManager {
         void addPosesToList(String type, List<Pose3d> poseList);
     }
 
+    // ===== PHYSICS WORLD INTEGRATION =====
+
+    /**
+     * Sets the physics world for adding/removing game piece bodies.
+     *
+     * @param physicsWorld the dyn4j physics world
+     */
+    public void setPhysicsWorld(World<Body> physicsWorld) {
+        this.physicsWorld = physicsWorld;
+    }
+
+    /**
+     * Gets the physics world.
+     *
+     * @return the dyn4j physics world
+     */
+    public World<Body> getPhysicsWorld() {
+        return this.physicsWorld;
+    }
+
     // ===== SPAWNING =====
 
     /**
      * Spawns a game piece on the field.
      *
+     * <p>If a physics world is set and the piece is a {@link GamePieceOnFieldSimulation}, it will be added to the
+     * physics world.
+     *
      * @param piece the physics-backed game piece
      * @return the UUID of the managed piece
      */
-    public UUID spawnOnField(GamePiece piece) {
+    public UUID spawnOnField(GamePieceOnFieldSimulation piece) {
+        if (physicsWorld != null && piece != null) {
+            physicsWorld.addBody(piece);
+        }
         ManagedGamePiece managed = new ManagedGamePiece(piece.getType(), GamePieceState.ON_FIELD, piece);
         allPieces.put(managed.getId(), managed);
         notifySpawned(managed);
@@ -176,17 +210,53 @@ public class GamePieceManager {
     // ===== DESTRUCTION =====
 
     /**
-     * Removes a piece from the manager.
+     * Removes a piece from the manager and physics world.
      *
      * @param pieceId the UUID to remove
      * @return the removed piece, or null if not found
      */
     public ManagedGamePiece remove(UUID pieceId) {
-        return allPieces.remove(pieceId);
+        ManagedGamePiece removed = allPieces.remove(pieceId);
+        if (removed != null && removed.getUnderlying() instanceof GamePieceOnFieldSimulation gp) {
+            if (physicsWorld != null) {
+                physicsWorld.removeBody(gp);
+            }
+        }
+        return removed;
     }
 
-    /** Clears all managed pieces. */
+    /**
+     * Removes the managed piece associated with the given underlying physics object. Also removes the body from the
+     * physics world if applicable.
+     *
+     * @param underlying the physics object
+     * @return the removed piece, or null if not found
+     */
+    public ManagedGamePiece removeByUnderlying(GamePiece underlying) {
+        if (underlying == null) return null;
+        ManagedGamePiece removed = allPieces.entrySet().stream()
+                .filter(e -> Objects.equals(e.getValue().getUnderlying(), underlying))
+                .findFirst()
+                .map(e -> allPieces.remove(e.getKey()))
+                .orElse(null);
+
+        if (removed != null && underlying instanceof GamePieceOnFieldSimulation gp) {
+            if (physicsWorld != null) {
+                physicsWorld.removeBody(gp);
+            }
+        }
+        return removed;
+    }
+
+    /** Clears all managed pieces. Also removes grounded pieces from physics world. */
     public void clearAll() {
+        if (physicsWorld != null) {
+            for (ManagedGamePiece piece : allPieces.values()) {
+                if (piece.getUnderlying() instanceof GamePieceOnFieldSimulation gp) {
+                    physicsWorld.removeBody(gp);
+                }
+            }
+        }
         allPieces.clear();
     }
 
@@ -196,7 +266,49 @@ public class GamePieceManager {
      * @param state the state to clear
      */
     public void clearByState(GamePieceState state) {
-        allPieces.entrySet().removeIf(e -> e.getValue().getState() == state);
+        allPieces.entrySet().removeIf(e -> {
+            if (e.getValue().getState() == state) {
+                if (physicsWorld != null && e.getValue().getUnderlying() instanceof GamePieceOnFieldSimulation gp) {
+                    physicsWorld.removeBody(gp);
+                }
+                return true;
+            }
+            return false;
+        });
+    }
+
+    // ===== PHYSICS-BACKED PIECE ACCESSORS =====
+
+    /**
+     * Gets all game pieces currently on the field (grounded with physics).
+     *
+     * @return set of on-field game pieces
+     */
+    public Set<GamePieceOnFieldSimulation> getOnFieldPieces() {
+        Set<GamePieceOnFieldSimulation> result = new HashSet<>();
+        for (ManagedGamePiece piece : allPieces.values()) {
+            if (piece.getState() == GamePieceState.ON_FIELD
+                    && piece.getUnderlying() instanceof GamePieceOnFieldSimulation gp) {
+                result.add(gp);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Gets all game piece projectiles currently in flight.
+     *
+     * @return set of in-flight projectiles
+     */
+    public Set<GamePieceProjectile> getInFlightPieces() {
+        Set<GamePieceProjectile> result = new HashSet<>();
+        for (ManagedGamePiece piece : allPieces.values()) {
+            if (piece.getState() == GamePieceState.IN_FLIGHT
+                    && piece.getUnderlying() instanceof GamePieceProjectile proj) {
+                result.add(proj);
+            }
+        }
+        return result;
     }
 
     // ===== QUERIES =====

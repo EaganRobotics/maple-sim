@@ -189,14 +189,16 @@ public class Arena2026Rebuilt extends SimulatedArena {
             double yawVariance,
             double speedVariance,
             double pitchVariance) {
-        addGamePieceProjectile(new RebuiltFuelOnFly(
+        var projectile = new RebuiltFuelOnFly(
                 piecePose.plus(new Translation2d(randomInRange(xVariance), randomInRange(yVariance))),
                 new Translation2d(),
                 new ChassisSpeeds(),
                 yaw.plus(Rotation2d.fromDegrees(randomInRange(yawVariance))),
                 height,
                 speed.plus(MetersPerSecond.of(randomInRange(speedVariance))),
-                Degrees.of(pitch.in(Degrees) + randomInRange(pitchVariance))));
+                Degrees.of(pitch.in(Degrees) + randomInRange(pitchVariance)));
+        getGamePieceManager().spawnInFlight(projectile);
+        projectile.launch();
     }
 
     @Override
@@ -257,7 +259,7 @@ public class Arena2026Rebuilt extends SimulatedArena {
 
                 java.util.List<Translation2d> q = quadrants.get(i);
                 if (indices[i] < q.size()) {
-                    super.addGamePiece(new RebuiltFuelOnField(q.get(indices[i])));
+                    getGamePieceManager().spawnOnField(new RebuiltFuelOnField(q.get(indices[i])));
                     indices[i]++;
                     added++;
                     piecesAvailable = true;
@@ -276,11 +278,11 @@ public class Arena2026Rebuilt extends SimulatedArena {
 
                 // Blue side
                 Translation2d bluePos = new Translation2d(x, y);
-                super.addGamePiece(new RebuiltFuelOnField(bluePos));
+                getGamePieceManager().spawnOnField(new RebuiltFuelOnField(bluePos));
 
                 // Red side (mirrored)
                 Translation2d redPos = flip(bluePos);
-                super.addGamePiece(new RebuiltFuelOnField(redPos));
+                getGamePieceManager().spawnOnField(new RebuiltFuelOnField(redPos));
             }
         }
 
