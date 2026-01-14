@@ -23,7 +23,7 @@ import org.ironmaple.utils.LegacyFieldMirroringUtils2024;
  *
  * <h1>Simulates a Game Piece Launched into the Air</h1>
  *
- * <p>Check<a href='https://shenzhen-robotics-alliance.github.io/maple-sim/simulating-projectiles/'>Online
+ * <p>Check<a href= 'https://shenzhen-robotics-alliance.github.io/maple-sim/simulating-projectiles/'>Online
  * Documentation</a>
  *
  * <p>The movement is modeled by simple projectile motion.
@@ -429,13 +429,15 @@ public class GamePieceProjectile implements GamePiece {
      */
     public void addGamePieceAfterTouchGround(SimulatedArena simulatedArena) {
         if (!becomesGamePieceOnGroundAfterTouchGround) return;
-        simulatedArena.addGamePiece(new GamePieceOnFieldSimulation(
-                info,
-                () -> Math.max(
-                        info.gamePieceHeight().in(Meters) / 2,
-                        getPositionAtTime(launchedTimer.get()).getZ()),
-                new Pose2d(getPositionAtTime(launchedTimer.get()).toTranslation2d(), new Rotation2d()),
-                initialLaunchingVelocityMPS));
+        simulatedArena
+                .getGamePieceManager()
+                .spawnOnField(new GamePieceOnFieldSimulation(
+                        info,
+                        () -> Math.max(
+                                info.gamePieceHeight().in(Meters) / 2,
+                                getPositionAtTime(launchedTimer.get()).getZ()),
+                        new Pose2d(getPositionAtTime(launchedTimer.get()).toTranslation2d(), new Rotation2d()),
+                        initialLaunchingVelocityMPS));
     }
 
     /**

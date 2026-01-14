@@ -68,7 +68,7 @@ public class ReefscapeCoralAlgaeStack extends GamePieceOnFieldSimulation {
 
     private void collapse() {
         // remove the stack
-        arena.removeGamePiece(this);
+        arena.getGamePieceManager().removeByUnderlying(this);
 
         throwCoralToGround();
         throwAlgaeToGround();
@@ -82,18 +82,20 @@ public class ReefscapeCoralAlgaeStack extends GamePieceOnFieldSimulation {
                 stackPosition().plus(new Translation2d(0.15, 0).rotateBy(velocityDirection())), velocityDirection()));
         System.out.println("coral position: " + coral.getPoseOnField());
         coral.setLinearVelocity(getLinearVelocity());
-        arena.addGamePiece(coral);
+        arena.getGamePieceManager().spawnOnField(coral);
     }
 
     private void throwAlgaeToGround() {
-        arena.addGamePieceProjectile(new ReefscapeAlgaeOnFly(
+        var projectile = new ReefscapeAlgaeOnFly(
                 stackPosition(),
                 new Translation2d(),
                 new ChassisSpeeds(),
                 velocityDirection(),
                 Meters.of(0.3).plus(Inches.of(8)),
                 MetersPerSecond.of(velocityMPS().getNorm() * 0.6),
-                Degrees.zero()));
+                Degrees.zero());
+        arena.getGamePieceManager().spawnInFlight(projectile);
+        projectile.launch();
     }
 
     /**

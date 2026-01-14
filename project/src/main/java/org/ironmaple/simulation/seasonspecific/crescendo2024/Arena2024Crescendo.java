@@ -107,7 +107,7 @@ public class Arena2024Crescendo extends SimulatedArena {
     @Override
     public void placeGamePiecesOnField() {
         for (Translation2d notePosition : NOTE_INITIAL_POSITIONS)
-            super.addGamePiece(new CrescendoNoteOnField(notePosition));
+            getGamePieceManager().spawnOnField(new CrescendoNoteOnField(notePosition));
 
         super.addCustomSimulation(new CrescendoHumanPlayerSimulation(this));
         setupValueForMatchBreakdown("TotalNotesInAmp");

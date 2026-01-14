@@ -18,6 +18,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.dyn4j.dynamics.Body;
 import org.dyn4j.dynamics.BodyFixture;
 import org.dyn4j.geometry.Convex;
@@ -27,8 +28,10 @@ import org.dyn4j.world.PhysicsWorld;
 import org.dyn4j.world.World;
 import org.ironmaple.simulation.drivesims.AbstractDriveTrainSimulation;
 import org.ironmaple.simulation.gamepieces.GamePiece;
+import org.ironmaple.simulation.gamepieces.GamePieceManager;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
 import org.ironmaple.simulation.gamepieces.GamePieceProjectile;
+import org.ironmaple.simulation.gamepieces.ManagedGamePiece;
 import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 import org.ironmaple.utils.mathutils.GeometryConvertor;
@@ -214,10 +217,10 @@ public abstract class SimulatedArena {
     protected final World<Body> physicsWorld;
     protected final Set<AbstractDriveTrainSimulation> driveTrainSimulations;
 
-    protected final Set<GamePiece> gamePieces;
     protected final List<Simulatable> customSimulations;
 
     private final List<IntakeSimulation> intakeSimulations;
+    protected final GamePieceManager gamePieceManager;
 
     /**
      *
@@ -236,8 +239,9 @@ public abstract class SimulatedArena {
         for (Body obstacle : obstaclesMap.obstacles) this.physicsWorld.addBody(obstacle);
         this.driveTrainSimulations = new HashSet<>();
         customSimulations = new ArrayList<>();
-        this.gamePieces = new HashSet<>();
         this.intakeSimulations = new ArrayList<>();
+        this.gamePieceManager = new GamePieceManager();
+        this.gamePieceManager.setPhysicsWorld(this.physicsWorld);
         setupValueForMatchBreakdown("TotalScore");
         setupValueForMatchBreakdown("TeleopScore");
         setupValueForMatchBreakdown("Auto/AutoScore");
@@ -331,9 +335,9 @@ public abstract class SimulatedArena {
      *
      * @param gamePiece the game piece to be registered in the simulation
      */
+    @Deprecated
     public synchronized void addGamePiece(GamePieceOnFieldSimulation gamePiece) {
-        this.physicsWorld.addBody(gamePiece);
-        this.gamePieces.add(gamePiece);
+        this.gamePieceManager.spawnOnField(gamePiece);
     }
 
     /**
@@ -460,8 +464,9 @@ public abstract class SimulatedArena {
      *
      * @param gamePieceProjectile the projectile to be registered and launched in the simulation
      */
+    @Deprecated
     public synchronized void addGamePieceProjectile(GamePieceProjectile gamePieceProjectile) {
-        this.gamePieces.add(gamePieceProjectile);
+        this.gamePieceManager.spawnInFlight(gamePieceProjectile);
         gamePieceProjectile.launch();
     }
 
@@ -475,9 +480,10 @@ public abstract class SimulatedArena {
      * @param gamePiece the game piece to be removed from the simulation
      * @return <code>true</code> if this set contained the specified element
      */
+    @Deprecated
     public synchronized boolean removeGamePiece(GamePieceOnFieldSimulation gamePiece) {
-        this.physicsWorld.removeBody(gamePiece);
-        return this.gamePieces.remove(gamePiece);
+        ManagedGamePiece removed = this.gamePieceManager.removeByUnderlying(gamePiece);
+        return removed != null;
     }
 
     public synchronized boolean removePiece(GamePiece toRemove) {
@@ -497,8 +503,10 @@ public abstract class SimulatedArena {
      * @param gamePieceLaunched the game piece projectile to be removed from the simulation
      * @return <code>true</code> if this set contained the specified element
      */
+    @Deprecated
     public synchronized boolean removeProjectile(GamePieceProjectile gamePieceLaunched) {
-        return this.gamePieces.remove(gamePieceLaunched);
+        ManagedGamePiece removed = this.gamePieceManager.removeByUnderlying(gamePieceLaunched);
+        return removed != null;
     }
 
     /**
@@ -509,9 +517,8 @@ public abstract class SimulatedArena {
      * <p>This method clears all game pieces from the physics world and the simulation's game piece collection.
      */
     public synchronized void clearGamePieces() {
-        for (GamePieceOnFieldSimulation gamePiece : this.gamePiecesOnField()) this.physicsWorld.removeBody(gamePiece);
-
-        this.gamePieces.clear();
+        this.gamePieceManager.clearAll();
+        this.intakeSimulations.forEach(intake -> intake.setGamePiecesCount(0));
         this.blueScore = 0;
         this.redScore = 0;
     }
@@ -607,14 +614,7 @@ public abstract class SimulatedArena {
      * @return all grounded (aka not projectile) pieces on the field as a set of GamePieceOnFieldSimulation objects
      */
     public synchronized Set<GamePieceOnFieldSimulation> gamePiecesOnField() {
-        Set<GamePieceOnFieldSimulation> returnList = new HashSet<GamePieceOnFieldSimulation>();
-        for (GamePiece gamePiece : this.gamePieces) {
-            if (gamePiece.isGrounded()) {
-                returnList.add((GamePieceOnFieldSimulation) gamePiece);
-            }
-        }
-
-        return returnList;
+        return gamePieceManager.getOnFieldPieces();
     }
 
     /**
@@ -625,14 +625,7 @@ public abstract class SimulatedArena {
      * @return all projectile pieces on the field as a set of GamePieceProjectile objects
      */
     public synchronized Set<GamePieceProjectile> gamePieceLaunched() {
-        Set<GamePieceProjectile> returnList = new HashSet<GamePieceProjectile>();
-        for (GamePiece gamePiece : this.gamePieces) {
-            if (!gamePiece.isGrounded()) {
-                returnList.add((GamePieceProjectile) gamePiece);
-            }
-        }
-
-        return returnList;
+        return gamePieceManager.getInFlightPieces();
     }
 
     /**
@@ -658,11 +651,7 @@ public abstract class SimulatedArena {
      * @return a {@link List} of {@link Pose3d} objects representing the 3D positions of the game pieces
      */
     public synchronized List<Pose3d> getGamePiecesPosesByType(String type) {
-        final List<Pose3d> gamePiecesPoses = new ArrayList<>();
-        for (GamePiece gamePiece : gamePieces)
-            if (Objects.equals(gamePiece.getType(), type)) gamePiecesPoses.add(gamePiece.getPose3d());
-
-        return gamePiecesPoses;
+        return gamePieceManager.getPosesByType(type);
     }
 
     /**
@@ -679,15 +668,43 @@ public abstract class SimulatedArena {
     /**
      *
      *
+     * <h2>Gets all visible game piece poses from all sources.</h2>
+     *
+     * <p>This includes field pieces, robot-held pieces (intakes, shooters), and field element pieces (outposts, etc.)
+     *
+     * @param type the game piece type to query
+     * @return a list of all poses from all sources
+     */
+    public synchronized List<Pose3d> getAllVisibleGamePiecesByType(String type) {
+        List<Pose3d> result = new ArrayList<>(getGamePiecesPosesByType(type));
+        gamePieceManager.getAllPosesByType(type).forEach(result::add);
+        return result;
+    }
+
+    /**
+     *
+     *
+     * <h2>Gets the game piece manager for registering custom pose sources.</h2>
+     *
+     * @return the game piece manager
+     */
+    public GamePieceManager getGamePieceManager() {
+        return gamePieceManager;
+    }
+
+    /**
+     *
+     *
      * <h2>Returns all game pieces on the field of the specified type as a list
      *
      * @param type The string type to be selected.
      * @return The game pieces as a list of {@link GamePiece}
      */
     public synchronized List<GamePiece> getGamePiecesByType(String type) {
-        final List<GamePiece> gamePiecesPoses = new ArrayList<>(this.gamePieces);
-        gamePiecesPoses.stream().filter(gamePiece -> !Objects.equals(gamePiece.getType(), type));
-        return gamePiecesPoses;
+        return gamePieceManager.getByType(type).stream()
+                .map(ManagedGamePiece::getUnderlying)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     /**

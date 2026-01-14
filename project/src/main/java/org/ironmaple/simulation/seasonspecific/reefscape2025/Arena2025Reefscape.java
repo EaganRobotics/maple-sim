@@ -103,13 +103,15 @@ public class Arena2025Reefscape extends SimulatedArena {
         Translation2d[] bluePositions = new Translation2d[] {
             new Translation2d(1.219, 5.855), new Translation2d(1.219, 4.026), new Translation2d(1.219, 2.197),
         };
-        for (Translation2d position : bluePositions) super.addGamePiece(new ReefscapeCoralAlgaeStack(position));
+        for (Translation2d position : bluePositions)
+            getGamePieceManager().spawnOnField(new ReefscapeCoralAlgaeStack(position));
 
         Translation2d[] redPositions = Arrays.stream(bluePositions)
                 .map(bluePosition ->
                         new Translation2d(FieldMirroringUtils.FIELD_WIDTH - bluePosition.getX(), bluePosition.getY()))
                 .toArray(Translation2d[]::new);
-        for (Translation2d position : redPositions) super.addGamePiece(new ReefscapeCoralAlgaeStack(position));
+        for (Translation2d position : redPositions)
+            getGamePieceManager().spawnOnField(new ReefscapeCoralAlgaeStack(position));
 
         setupValueForMatchBreakdown("AlgaeInProcessor");
         setupValueForMatchBreakdown("AlgaeInNet");

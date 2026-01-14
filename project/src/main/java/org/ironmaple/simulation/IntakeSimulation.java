@@ -1,10 +1,20 @@
 package org.ironmaple.simulation;
 
+import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.Volts;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Distance;
+import edu.wpi.first.units.measure.Voltage;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.function.Predicate;
@@ -21,6 +31,10 @@ import org.dyn4j.world.ContactCollisionData;
 import org.dyn4j.world.listener.ContactListener;
 import org.ironmaple.simulation.drivesims.AbstractDriveTrainSimulation;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
+import org.ironmaple.simulation.gamepieces.GamePieceState;
+import org.ironmaple.simulation.motorsims.MapleMotorSim;
+import org.ironmaple.simulation.motorsims.SimMotorConfigs;
+import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.ironmaple.simulation.seasonspecific.reefscape2025.ReefscapeCoralAlgaeStack;
 
 /**
@@ -28,7 +42,7 @@ import org.ironmaple.simulation.seasonspecific.reefscape2025.ReefscapeCoralAlgae
  *
  * <h2>Simulates an Intake Mechanism on the Robot.</h2>
  *
- * <p>Check<a href='https://shenzhen-robotics-alliance.github.io/maple-sim/simulating-intake/'>Online Documentation</a>
+ * <p>Check<a href= 'https://shenzhen-robotics-alliance.github.io/maple-sim/simulating-intake/'>Online Documentation</a>
  *
  * <p>The intake is a 2D component attached to one side of the robot's chassis. It is rectangular in shape and extends
  * from the robot when activated.
@@ -57,6 +71,8 @@ public class IntakeSimulation extends BodyFixture {
     private final int capacity;
     private int gamePiecesInIntakeCount;
     private boolean intakeRunning;
+    private final List<MapleMotorSim> intakeMotorSims = new ArrayList<>();
+    private Voltage appliedVoltage = Volts.zero();
 
     private final Queue<GamePieceOnFieldSimulation> gamePiecesToRemove;
     private final AbstractDriveTrainSimulation driveTrainSimulation;
@@ -68,6 +84,70 @@ public class IntakeSimulation extends BodyFixture {
         LEFT,
         RIGHT,
         BACK
+    }
+
+    /**
+     * Start building an Intake Simulation.
+     *
+     * @param gamePieceType the name of the game piece to collect (e.g. "Coral")
+     * @param driveSim the drive train simulation to attach to
+     * @return a new Builder instance
+     */
+    public static Builder create(String gamePieceType, AbstractDriveTrainSimulation driveSim) {
+        return new Builder(gamePieceType, driveSim);
+    }
+
+    public static class Builder {
+        private final String gamePieceType;
+        private final AbstractDriveTrainSimulation driveSim;
+        private int capacity = 1;
+        private Distance width = null;
+        private Distance extensionLength = Meters.of(0.02);
+        private IntakeSide side = IntakeSide.FRONT;
+        private final List<SimMotorConfigs> motors = new ArrayList<>();
+
+        public Builder(String gamePieceType, AbstractDriveTrainSimulation driveSim) {
+            this.gamePieceType = gamePieceType;
+            this.driveSim = driveSim;
+        }
+
+        public Builder capacity(int capacity) {
+            this.capacity = capacity;
+            return this;
+        }
+
+        public Builder width(Distance width) {
+            this.width = width;
+            return this;
+        }
+
+        public Builder extensionLength(Distance length) {
+            this.extensionLength = length;
+            return this;
+        }
+
+        public Builder side(IntakeSide side) {
+            this.side = side;
+            return this;
+        }
+
+        public Builder withMotor(SimMotorConfigs motorConfig) {
+            this.motors.add(motorConfig);
+            return this;
+        }
+
+        public IntakeSimulation build() {
+            if (width == null) throw new IllegalArgumentException("Intake width must be specified.");
+            IntakeSimulation sim = new IntakeSimulation(
+                    gamePieceType,
+                    driveSim,
+                    getIntakeRectangle(driveSim, width.in(Meters), extensionLength.in(Meters), side),
+                    capacity);
+            if (!motors.isEmpty()) {
+                sim.withMotors(motors.toArray(new SimMotorConfigs[0]));
+            }
+            return sim;
+        }
     }
 
     /**
@@ -256,6 +336,7 @@ public class IntakeSimulation extends BodyFixture {
 
         return toReturn;
     }
+
     /**
      *
      *
@@ -327,6 +408,7 @@ public class IntakeSimulation extends BodyFixture {
 
         private void flagGamePieceForRemoval(GamePieceOnFieldSimulation gamePiece) {
             if (!customIntakeCondition.test(gamePiece)) return;
+            if (gamePiecesToRemove.contains(gamePiece)) return; // Prevent duplicate counting
             gamePiecesToRemove.add(gamePiece);
             gamePiecesInIntakeCount++;
         }
@@ -378,7 +460,22 @@ public class IntakeSimulation extends BodyFixture {
         while (!gamePiecesToRemove.isEmpty()) {
             GamePieceOnFieldSimulation gamePiece = gamePiecesToRemove.poll();
             gamePiece.onIntake(this.targetedGamePieceType);
-            arena.removeGamePiece(gamePiece);
+
+            // Find the managed piece and transition it from ON_FIELD to IN_INTAKE
+            var manager = arena.getGamePieceManager();
+            var matching = manager.getAll().stream()
+                    .filter(m -> m.getUnderlying() == gamePiece)
+                    .findFirst();
+
+            if (matching.isPresent()) {
+                var managed = matching.get();
+                managed.setState(GamePieceState.IN_INTAKE);
+                managed.setOwner(this);
+                managed.setUnderlying(null); // No longer physics-backed
+            }
+
+            // Remove from physics world only (manager already has the piece)
+            manager.getPhysicsWorld().removeBody(gamePiece);
         }
     }
 
@@ -402,6 +499,30 @@ public class IntakeSimulation extends BodyFixture {
     /**
      *
      *
+     * <h2>Supplies poses for game pieces currently held in this intake.</h2>
+     *
+     * <p>Use this method to visualize pieces inside the robot in AdvantageScope.
+     *
+     * @param type the game piece type to query
+     * @param poseList the list to add poses to
+     * @param robotPose the current robot pose in world coordinates
+     * @param pieceOffsetInRobot the offset of pieces within the robot frame
+     */
+    public void supplyRobotPoses(String type, List<Pose3d> poseList, Pose2d robotPose, Pose3d pieceOffsetInRobot) {
+        if (!type.equals(targetedGamePieceType)) return;
+        Pose3d robotPose3d = new Pose3d(robotPose);
+        for (int i = 0; i < gamePiecesInIntakeCount; i++) {
+            // Stack pieces visually with slight offset
+            Transform3d offset = new Transform3d(
+                    pieceOffsetInRobot.getTranslation().plus(new Translation3d(0, 0, i * 0.05)),
+                    pieceOffsetInRobot.getRotation());
+            poseList.add(robotPose3d.plus(offset));
+        }
+    }
+
+    /**
+     *
+     *
      * <h2>Sets a Custom Intake Condition.</h2>
      *
      * <p>This method allows the user to define a custom condition for determining whether a game piece on the field can
@@ -418,5 +539,73 @@ public class IntakeSimulation extends BodyFixture {
      */
     public void setCustomIntakeCondition(Predicate<GamePieceOnFieldSimulation> customIntakeCondition) {
         this.customIntakeCondition = customIntakeCondition;
+    }
+
+    /**
+     *
+     *
+     * <h2>Adds simulated motors to the intake.</h2>
+     *
+     * <p>This allows the intake to simulate current draw on the {@link SimulatedBattery}.
+     *
+     * @param motorConfigs the configurations of the motors to be added
+     * @return the intake simulation itself, for chaining
+     */
+    public IntakeSimulation withMotors(SimMotorConfigs... motorConfigs) {
+        for (SimMotorConfigs config : motorConfigs) {
+            MapleMotorSim sim = new MapleMotorSim(config);
+            sim.useMotorController(
+                    (mechAngle, mechVel, encAngle, encVel) -> intakeRunning ? appliedVoltage : Volts.zero());
+            this.intakeMotorSims.add(sim);
+        }
+        return this;
+    }
+
+    /**
+     *
+     *
+     * <h2>Sets the voltage applied to the intake motors.</h2>
+     *
+     * <p>If the voltage is greater than 0.5 Volts, the intake will be turned on ({@link #startIntake()}).
+     *
+     * <p>If the voltage is less than or equal to 0.5 Volts, the intake will be turned off ({@link #stopIntake()}).
+     *
+     * @param voltage the voltage to apply
+     */
+    public void setIntakeVoltage(Voltage voltage) {
+        this.appliedVoltage = voltage;
+        if (Math.abs(voltage.in(Volts)) > 0.5) startIntake();
+        else stopIntake();
+    }
+
+    /**
+     *
+     *
+     * <h2>Gets the total stator current draw of the intake.</h2>
+     *
+     * @return the total stator current of all intake motors
+     */
+    public Current getStatorCurrent() {
+        Current total = Amps.zero();
+        for (MapleMotorSim sim : intakeMotorSims) {
+            total = total.plus(sim.getStatorCurrent());
+        }
+        return total;
+    }
+
+    /**
+     *
+     *
+     * <h2>Updates the intake simulation logic.</h2>
+     *
+     * <p>This method is called by the {@link SimulatedArena} during each sub-tick. It updates the motor simulations and
+     * manages current draw.
+     */
+    public void simulationSubTick() {
+        for (MapleMotorSim sim : intakeMotorSims) {
+            sim.update(SimulatedArena.getSimulationDt());
+        }
+        // removeObtainedGamePieces is called separately by SimulatedArena, ensuring
+        // polling order logic remains
     }
 }

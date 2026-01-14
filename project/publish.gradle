@@ -2,7 +2,7 @@ apply plugin: 'maven-publish'
 
 ext.licenseFile = files("$rootDir/LICENSE.txt")
 
-def pubVersion = '0.3.16'
+def pubVersion = '0.4.0'
 
 def outputsFolder = file("$buildDir/outputs")
 
@@ -136,7 +136,7 @@ artifacts {
 
 libraryBuild.dependsOn build
 
-def releasesRepoUrl = "file:/Users/rholmdahl/wpilib/2026/maven"
+def releasesRepoUrl = "$rootDir/../docs/vendordep/repos/releases"
 
 publishing {
     repositories {

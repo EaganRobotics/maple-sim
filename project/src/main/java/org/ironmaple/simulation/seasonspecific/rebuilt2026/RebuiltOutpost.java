@@ -79,6 +79,13 @@ public class RebuiltOutpost extends Goal {
         OutpostPublisher.set(new Pose3d(position, new Rotation3d()));
         OutpostDumpPublisher.set(new Pose3d(isBlue ? blueDumpPose : redDumpPose, new Rotation3d()));
         OutpostThrowPublisher.set(new Pose3d(isBlue ? blueLaunchPose : redLaunchPose, new Rotation3d()));
+
+        // Register with game piece manager for unified rendering
+        arena.getGamePieceManager().registerPoseSource((type, list) -> {
+            if ("Fuel".equals(type)) {
+                draw(list);
+            }
+        });
     }
 
     @Override

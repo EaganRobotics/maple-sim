@@ -43,8 +43,6 @@ public class Arena2026Rebuilt extends SimulatedArena {
     protected RebuiltOutpost blueOutpost;
     protected RebuiltOutpost redOutpost;
 
-    protected boolean isInEfficiencyMode = true;
-
     protected static Translation2d centerPieceBottomRightCorner = new Translation2d(7.35737, 1.724406);
     protected static Translation2d redDepotBottomRightCorner = new Translation2d(0.02, 5.53);
     protected static Translation2d blueDepotBottomRightCorner = new Translation2d(16.0274, 1.646936);
@@ -132,11 +130,27 @@ public class Arena2026Rebuilt extends SimulatedArena {
     }
 
     private Translation2d fuelZoneCenter = new Translation2d(FIELD_WIDTH / 2, FIELD_HEIGHT / 2);
-    private int fuelCount = 408;
+    private int neutralFuelCount = 408;
     private double fuelSeparationGap = 0.001; // 1mm
 
-    public void setFuelCount(int count) {
-        this.fuelCount = Math.max(360, Math.min(600, count));
+    public void setNeutralFuelCount(int count) {
+        this.neutralFuelCount = Math.min(600, count);
+    }
+
+    public RebuiltHub getBlueHub() {
+        return blueHub;
+    }
+
+    public RebuiltHub getRedHub() {
+        return redHub;
+    }
+
+    public RebuiltOutpost getBlueOutpost() {
+        return blueOutpost;
+    }
+
+    public RebuiltOutpost getRedOutpost() {
+        return redOutpost;
     }
 
     /**
@@ -175,14 +189,16 @@ public class Arena2026Rebuilt extends SimulatedArena {
             double yawVariance,
             double speedVariance,
             double pitchVariance) {
-        addGamePieceProjectile(new RebuiltFuelOnFly(
+        var projectile = new RebuiltFuelOnFly(
                 piecePose.plus(new Translation2d(randomInRange(xVariance), randomInRange(yVariance))),
                 new Translation2d(),
                 new ChassisSpeeds(),
                 yaw.plus(Rotation2d.fromDegrees(randomInRange(yawVariance))),
                 height,
                 speed.plus(MetersPerSecond.of(randomInRange(speedVariance))),
-                Degrees.of(pitch.in(Degrees) + randomInRange(pitchVariance))));
+                Degrees.of(pitch.in(Degrees) + randomInRange(pitchVariance)));
+        getGamePieceManager().spawnInFlight(projectile);
+        projectile.launch();
     }
 
     @Override
@@ -205,8 +221,9 @@ public class Arena2026Rebuilt extends SimulatedArena {
         // We want uniform spacing of 'fuelSeparationGap' between all pieces, including
         // across the axes.
         // So the first piece center should be at (radius + gap/2) from the axis.
-        double startX = fuelRadius + fuelSeparationGap / 2.0;
-        double startY = fuelRadius + fuelSeparationGap / 2.0;
+        double dividerWidth = edu.wpi.first.units.Units.Inches.of(2).in(edu.wpi.first.units.Units.Meters);
+        double startX = dividerWidth / 2 + fuelSeparationGap + fuelRadius;
+        double startY = dividerWidth / 2 + fuelSeparationGap + fuelRadius;
 
         for (double x = startX; x + fuelRadius <= boundingBoxDepth / 2; x += spacing) {
             for (double y = startY; y + fuelRadius <= boundingBoxWidth / 2; y += spacing) {
@@ -235,14 +252,14 @@ public class Arena2026Rebuilt extends SimulatedArena {
         // Indices for each quadrant list
         int[] indices = new int[4];
 
-        while (added < fuelCount && piecesAvailable) {
+        while (added < neutralFuelCount && piecesAvailable) {
             piecesAvailable = false;
             for (int i = 0; i < 4; i++) {
-                if (added >= fuelCount) break;
+                if (added >= neutralFuelCount) break;
 
                 java.util.List<Translation2d> q = quadrants.get(i);
                 if (indices[i] < q.size()) {
-                    super.addGamePiece(new RebuiltFuelOnField(q.get(indices[i])));
+                    getGamePieceManager().spawnOnField(new RebuiltFuelOnField(q.get(indices[i])));
                     indices[i]++;
                     added++;
                     piecesAvailable = true;
@@ -261,11 +278,11 @@ public class Arena2026Rebuilt extends SimulatedArena {
 
                 // Blue side
                 Translation2d bluePos = new Translation2d(x, y);
-                super.addGamePiece(new RebuiltFuelOnField(bluePos));
+                getGamePieceManager().spawnOnField(new RebuiltFuelOnField(bluePos));
 
                 // Red side (mirrored)
                 Translation2d redPos = flip(bluePos);
-                super.addGamePiece(new RebuiltFuelOnField(redPos));
+                getGamePieceManager().spawnOnField(new RebuiltFuelOnField(redPos));
             }
         }
 
@@ -303,6 +320,15 @@ public class Arena2026Rebuilt extends SimulatedArena {
             }
         } else {
             clock = 25;
+            String fmsMessage = DriverStation.getGameSpecificMessage();
+            if (fmsMessage != null) {
+                // 'B' means Blue is inactive first (Active in Shifts 2 & 4), so Red starts
+                // Active (blueIsOnClock = false).
+                if (fmsMessage.contains("B")) blueIsOnClock = false;
+                // 'R' means Red is inactive first, so Blue starts Active (blueIsOnClock =
+                // true).
+                else if (fmsMessage.contains("R")) blueIsOnClock = true;
+            }
         }
 
         phaseClockPublisher.set((clock));

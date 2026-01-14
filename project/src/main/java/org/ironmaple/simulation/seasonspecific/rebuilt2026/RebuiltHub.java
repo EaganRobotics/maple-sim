@@ -90,9 +90,10 @@ public class RebuiltHub extends Goal {
 
     @Override
     protected boolean checkCollision(GamePiece GamePiece) {
-        System.out.println(Math.pow(GamePiece.getPose3d().getX() - position.getX(), 2)
-                + Math.pow(GamePiece.getPose3d().getY() - position.getY(), 2)
-                + Math.pow(GamePiece.getPose3d().getZ() - position.getZ(), 2));
+        // System.out.println(Math.pow(GamePiece.getPose3d().getX() - position.getX(),
+        // 2)
+        // + Math.pow(GamePiece.getPose3d().getY() - position.getY(), 2)
+        // + Math.pow(GamePiece.getPose3d().getZ() - position.getZ(), 2));
         return Math.pow(GamePiece.getPose3d().getX() - position.getX(), 2)
                         + Math.pow(GamePiece.getPose3d().getY() - position.getY(), 2)
                         + Math.pow(GamePiece.getPose3d().getZ() - position.getZ(), 2)
