@@ -19,7 +19,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       - name: Build and Publish Maven Artifacts locally
-        run: ./gradlew publish
+        run: cd project && ./gradlew publish
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
