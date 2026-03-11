@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.Arena;
 import org.ironmaple.utils.LegacyFieldMirroringUtils2024;
 
 /**
@@ -427,17 +427,10 @@ public class GamePieceProjectile implements GamePiece {
      * @param simulatedArena the arena simulation to which the game piece will be added, usually obtained from
      *     {@link SimulatedArena#getInstance()}
      */
-    public void addGamePieceAfterTouchGround(SimulatedArena simulatedArena) {
+    public void addGamePieceAfterTouchGround(Arena arena) {
         if (!becomesGamePieceOnGroundAfterTouchGround) return;
-        simulatedArena
-                .getGamePieceManager()
-                .spawnOnField(new GamePieceOnFieldSimulation(
-                        info,
-                        () -> Math.max(
-                                info.gamePieceHeight().in(Meters) / 2,
-                                getPositionAtTime(launchedTimer.get()).getZ()),
-                        new Pose2d(getPositionAtTime(launchedTimer.get()).toTranslation2d(), new Rotation2d()),
-                        initialLaunchingVelocityMPS));
+        arena.spawnGamePieceOnField(
+                info, new Pose3d(getPositionAtTime(launchedTimer.get()), gamePieceRotation), getVelocity3dMPS());
     }
 
     /**
@@ -453,8 +446,7 @@ public class GamePieceProjectile implements GamePiece {
      *
      * <p>3. If a game piece {@link #hasGoneOutOfField()}, remove it.
      */
-    public static void updateGamePieceProjectiles(
-            SimulatedArena simulatedArena, Set<GamePieceProjectile> gamePieceProjectiles) {
+    public static void updateGamePieceProjectiles(Arena arena, Set<GamePieceProjectile> gamePieceProjectiles) {
         final Queue<GamePieceProjectile> toRemoves = new ArrayBlockingQueue<>(5);
         for (GamePieceProjectile gamePieceProjectile : gamePieceProjectiles) {
             if (gamePieceProjectile.hasHitTarget()
@@ -464,10 +456,10 @@ public class GamePieceProjectile implements GamePiece {
                 gamePieceProjectile.hitTargetCallBack.run();
                 gamePieceProjectile.hitTargetCallBackCalled = true;
             }
-            if (gamePieceProjectile.hasHitGround()) gamePieceProjectile.addGamePieceAfterTouchGround(simulatedArena);
+            if (gamePieceProjectile.hasHitGround()) gamePieceProjectile.addGamePieceAfterTouchGround(arena);
         }
 
-        while (!toRemoves.isEmpty()) simulatedArena.removePiece(toRemoves.poll().cleanUp());
+        while (!toRemoves.isEmpty()) arena.removePiece(toRemoves.poll().cleanUp());
     }
 
     // The rest are methods to configure a game piece projectile simulation

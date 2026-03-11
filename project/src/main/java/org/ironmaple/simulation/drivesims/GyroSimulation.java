@@ -19,10 +19,16 @@ import org.ironmaple.utils.mathutils.MapleCommonMath;
  */
 public class GyroSimulation {
     private static final double
-            /* The threshold of instantaneous angular acceleration at which the chassis is considered to experience an "impact." */
+            /*
+             * The threshold of instantaneous angular acceleration at which the chassis is
+             * considered to experience an "impact."
+             */
             ANGULAR_ACCELERATION_THRESHOLD_START_DRIFTING = 500,
-            /* The amount of drift, in radians, that the gyro experiences as a result of each multiple of the angular acceleration threshold. */
-            DRIFT_DUE_TO_IMPACT_COEFFICIENT = Math.toRadians(1);
+            /*
+             * The amount of drift, in radians, that the gyro experiences as a result of
+             * each multiple of the angular acceleration threshold.
+             */
+            DRIFT_DUE_TO_IMPACT_COEFFICIENT = 0; // Math.toRadians(1);
     private final double AVERAGE_DRIFTING_IN_30_SECS_MOTIONLESS_DEG, VELOCITY_MEASUREMENT_STANDARD_DEVIATION_PERCENT;
 
     private Rotation2d gyroReading;
@@ -98,8 +104,8 @@ public class GyroSimulation {
     }
 
     /**
-     * gyro readings for <a
-     * href="https://v6.docs.ctr-electronics.com/en/stable/docs/application-notes/update-frequency-impact.html">high-frequency
+     * gyro readings for <a href=
+     * "https://v6.docs.ctr-electronics.com/en/stable/docs/application-notes/update-frequency-impact.html">high-frequency
      * odometers</a>.
      *
      * @return the readings of the gyro during the last 5 simulation sub ticks

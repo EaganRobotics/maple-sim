@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.Seconds;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.networktables.BooleanPublisher;
 import edu.wpi.first.networktables.BooleanSubscriber;
 import edu.wpi.first.networktables.DoublePublisher;
@@ -61,7 +62,7 @@ import org.ironmaple.utils.mathutils.GeometryConvertor;
  *       {@link GamePieceOnFieldSimulation}.
  * </ul>
  */
-public abstract class SimulatedArena {
+public abstract class SimulatedArena implements Arena {
     /** Whether to allow the simulation to run a real robot This feature is HIGHLY RECOMMENDED to be turned OFF */
     public static boolean ALLOW_CREATION_ON_REAL_ROBOT = false;
 
@@ -263,14 +264,36 @@ public abstract class SimulatedArena {
      *   <li>Adding custom simulation objects or handling events in the simulated arena.
      * </ul>
      */
-    public interface Simulatable {
-        /**
-         * Called in {@link #simulationSubTick(int)}.
-         *
-         * @param subTickNum the number of this sub-tick (counting from 0 in each robot period)
-         */
-        void simulationSubTick(int subTickNum);
+    public void registerGamePieceScored(GamePiece piece, Object goal) {
+        gamePieceManager.createVirtual(
+                piece.getType(), org.ironmaple.simulation.gamepieces.GamePieceState.IN_GOAL, goal);
     }
+
+    public void registerGamePieceVisualizationSource(String type, java.util.function.Consumer<List<Pose3d>> source) {
+        gamePieceManager.registerPoseSource((t, list) -> {
+            if (t.equals(type)) {
+                source.accept(list);
+            }
+        });
+    }
+
+    /**
+     *
+     *
+     * <h2>Represents a custom simulation to be updated during each simulation sub-tick.</h2>
+     *
+     * <p>This allows you to register custom actions that will be executed at a high frequency during each simulation
+     * sub-tick. This is useful for tasks that need to be updated multiple times per simulation cycle.
+     *
+     * <p>Examples of how this method is used:
+     *
+     * <ul>
+     *   <li>Pulling encoder values for high-frequency odometry updates.
+     *   <li>Adding custom simulation objects or handling events in the simulated arena.
+     * </ul>
+     */
+    // Simulatable is now in Arena interface but we can implement it or just use it.
+    // public interface Simulatable ... (removed)
 
     /**
      *
@@ -390,7 +413,7 @@ public abstract class SimulatedArena {
      * @param valueKey The name of the value to be added
      * @param value The value to be added
      */
-    public void replaceValueInMatchBreakDown(boolean isBlueTeam, String valueKey, Double value) {
+    public void replaceValueInMatchBreakDown(boolean isBlueTeam, String valueKey, double value) {
         if (isBlueTeam) blueScoringBreakdown.put(valueKey, value);
         else redScoringBreakdown.put(valueKey, value);
     }
@@ -417,7 +440,7 @@ public abstract class SimulatedArena {
      * @param valueKey The name of the value to be added
      * @param value The value to be added
      */
-    public void replaceValueInMatchBreakDown(boolean isBlueTeam, String valueKey, Integer value) {
+    public void replaceValueInMatchBreakDown(boolean isBlueTeam, String valueKey, int value) {
         replaceValueInMatchBreakDown(isBlueTeam, valueKey, (double) value);
     }
 
@@ -431,7 +454,7 @@ public abstract class SimulatedArena {
      * @param ValueKey The name of the value to be added too
      * @param toAdd how much to be added to specified value
      */
-    public void addValueToMatchBreakdown(boolean isBlueTeam, String ValueKey, Double toAdd) {
+    public void addValueToMatchBreakdown(boolean isBlueTeam, String ValueKey, double toAdd) {
         if (isBlueTeam) {
             if (blueScoringBreakdown.get(ValueKey) == null) blueScoringBreakdown.put(ValueKey, toAdd);
             else blueScoringBreakdown.put(ValueKey, blueScoringBreakdown.get(ValueKey) + toAdd);
@@ -620,6 +643,29 @@ public abstract class SimulatedArena {
     /**
      *
      *
+     * <h2>Spawns a Game Piece on the Field.</h2>
+     *
+     * <p>This method abstracts the creation of grounded game pieces, allowing subclasses (like
+     * {@link SimulatedArena3D}) to spawn 3D representations instead of 2D ones.
+     *
+     * @param info the game piece configuration
+     * @param pose the initial pose of the game piece
+     * @param velocity the initial velocity of the game piece
+     */
+    public void spawnGamePieceOnField(
+            GamePieceOnFieldSimulation.GamePieceInfo info, Pose3d pose, Translation3d velocity) {
+        this.gamePieceManager.spawnOnField(new GamePieceOnFieldSimulation(
+                info,
+                () -> Math.max(info.gamePieceHeight().in(Units.Meters) / 2, pose.getZ()),
+                new Pose2d(
+                        pose.getTranslation().toTranslation2d(),
+                        pose.getRotation().toRotation2d()),
+                new Translation2d(velocity.getX(), velocity.getY())));
+    }
+
+    /**
+     *
+     *
      * <h2>Returns a list of all projectile pieces on the field</h2>
      *
      * @return all projectile pieces on the field as a set of GamePieceProjectile objects
@@ -661,8 +707,22 @@ public abstract class SimulatedArena {
      *
      * @see #getGamePiecesPosesByType(String)
      */
-    public synchronized Pose3d[] getGamePiecesArrayByType(String type) {
+    public synchronized Pose3d[] getGamePiecePosesArrayByType(String type) {
         return getGamePiecesPosesByType(type).toArray(Pose3d[]::new);
+    }
+
+    /**
+     *
+     *
+     * <h2>Obtains the 3D Poses of a Specific Type of Game Piece as an array.</h2>
+     *
+     * @see #getGamePiecesPosesByType(String)
+     * @deprecated Use {@link #getGamePiecePosesArrayByType(String)} instead. This method name was confusing as it
+     *     implied returning GamePiece objects.
+     */
+    @Deprecated
+    public synchronized Pose3d[] getGamePiecesArrayByType(String type) {
+        return getGamePiecePosesArrayByType(type);
     }
 
     /**
@@ -707,6 +767,26 @@ public abstract class SimulatedArena {
                 .collect(Collectors.toList());
     }
 
+    /**
+     *
+     *
+     * <h2>Returns all game pieces on the field of the specified type as an array</h2>
+     *
+     * @param type The string type to be selected.
+     * @return The game pieces as an array of {@link GamePiece}
+     */
+    public synchronized GamePiece[] getGamePiecesByTypeAsArray(String type) {
+        return getGamePiecesByType(type).toArray(GamePiece[]::new);
+    }
+
+    /**
+     *
+     *
+     * <h2>Returns all game pieces on the field of the specified type as an array</h2>
+     *
+     * @param type The string type to be selected.
+     * @return The game pieces as an array of {@link GamePiece}
+     */
     /**
      *
      *

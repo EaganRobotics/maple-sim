@@ -52,6 +52,15 @@ public class MapleMotorSim {
      *
      * <p>This is equivalent to{@link edu.wpi.first.wpilibj.simulation.DCMotorSim#update(double)}.
      */
+    private Torque externalTorque = NewtonMeters.zero();
+
+    /**
+     *
+     *
+     * <h2>Updates the simulation.</h2>
+     *
+     * <p>This is equivalent to{@link edu.wpi.first.wpilibj.simulation.DCMotorSim#update(double)}.
+     */
     public void update(Time dt) {
         var appliedVoltage = controller.updateControlSignal(
                 motorSim.getAngularPosition(),
@@ -71,6 +80,28 @@ public class MapleMotorSim {
         motorSim.setInputVoltage(appliedVoltage.in(Volts));
         motorSim.update(dt.in(Seconds));
 
+        // Apply external torque (manual integration)
+        // alpha = torque / inertia
+        // w = w + alpha * dt
+        if (externalTorque.magnitude() > 1e-6) {
+            double torqueNm = externalTorque.in(NewtonMeters);
+            double gearing = configs.gearing;
+
+            // We apply torque to the LOAD.
+            // alpha_load = T_load / J_load
+            double alphaLoad = torqueNm / configs.loadMOI.in(KilogramSquareMeters);
+            double deltaOmegaLoad = alphaLoad * dt.in(Seconds);
+            double deltaOmegaMotor = deltaOmegaLoad * gearing;
+
+            // Note: If motorSim uses Units (implied by linter), we must check the setter
+            // too.
+            // But the linter says Setter takes double.
+            // And Getter returns AngularVelocity.
+            // So we convert Getter to double, add delta, pass to Setter.
+            motorSim.setAngularVelocity(motorSim.getAngularVelocity().in(RadiansPerSecond) + deltaOmegaMotor);
+            motorSim.setAngle(motorSim.getAngularPosition().in(Radians) + deltaOmegaMotor * dt.in(Seconds));
+        }
+
         if (motorSim.getAngularPosition().lte(configs.reverseHardwareLimit)) {
             motorSim.setAngle(configs.reverseHardwareLimit.in(Radians));
             motorSim.setAngularVelocity(0);
@@ -78,6 +109,20 @@ public class MapleMotorSim {
             motorSim.setAngle(configs.forwardHardwareLimit.in(Radians));
             motorSim.setAngularVelocity(0);
         }
+    }
+
+    /**
+     *
+     *
+     * <h2>Sets an External Torque on the Receiver.</h2>
+     *
+     * <p>Simulates an external load (gravity, contact, etc.) acting on the mechanism. The torque is applied for the
+     * duration of the next update cycle.
+     *
+     * @param torque the torque to apply (positive = same direction as motor positive)
+     */
+    public void setExternalTorque(Torque torque) {
+        this.externalTorque = torque;
     }
 
     public <T extends SimulatedMotorController> T useMotorController(T motorController) {
@@ -173,8 +218,8 @@ public class MapleMotorSim {
      *
      * <h2>Obtains the <strong>supply</strong> current.</h2>
      *
-     * <p>The supply current is different from the stator current, as described <a
-     * href='https://www.chiefdelphi.com/t/current-limiting-talonfx-values/374780/10'>here</a>.
+     * <p>The supply current is different from the stator current, as described <a href=
+     * 'https://www.chiefdelphi.com/t/current-limiting-talonfx-values/374780/10'>here</a>.
      *
      * @return the supply current of the motor
      */
@@ -193,11 +238,13 @@ public class MapleMotorSim {
      *
      * <p>You can modify the configuration of this motor by:
      *
-     * <pre><code>
+     * <pre>
+     * <code>
      *     mapleMotorSim.getConfigs()
      *          .with...(...)
      *          .with...(...);
-     * </code></pre>
+     * </code>
+     * </pre>
      *
      * @return the configuration of the motor
      */

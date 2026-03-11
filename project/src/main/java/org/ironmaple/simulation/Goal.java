@@ -13,7 +13,6 @@ import java.util.function.Consumer;
 import org.dyn4j.geometry.Rectangle;
 import org.dyn4j.geometry.Vector2;
 import org.ironmaple.simulation.gamepieces.GamePiece;
-import org.ironmaple.simulation.gamepieces.GamePieceState;
 
 /**
  *
@@ -29,7 +28,7 @@ public abstract class Goal implements SimulatedArena.Simulatable {
     protected final String gamePieceType;
 
     protected final Translation3d position;
-    protected final SimulatedArena arena;
+    protected final Arena arena;
     protected final int max;
     public final boolean isBlue;
     protected int gamePieceCount = 0;
@@ -70,7 +69,7 @@ public abstract class Goal implements SimulatedArena.Simulatable {
      * @param allowGrounded Wether or not grounded pieces can be scored in this goal
      */
     public Goal(
-            SimulatedArena arena,
+            Arena arena,
             Distance xDimension,
             Distance yDimension,
             Distance height,
@@ -112,7 +111,7 @@ public abstract class Goal implements SimulatedArena.Simulatable {
      * @param allowsGrounded Wether or not grounded pieces can be scored in this goal
      */
     public Goal(
-            SimulatedArena arena,
+            Arena arena,
             Distance xDimension,
             Distance yDimension,
             Distance height,
@@ -145,7 +144,7 @@ public abstract class Goal implements SimulatedArena.Simulatable {
                             gamePiece.triggerHitTargeCallBack();
 
                             // Notify manager that piece was scored
-                            arena.getGamePieceManager().createVirtual(gamePieceType, GamePieceState.IN_GOAL, this);
+                            arena.registerGamePieceScored(gamePiece, this);
 
                             arena.removePiece(gamePiece);
                         });

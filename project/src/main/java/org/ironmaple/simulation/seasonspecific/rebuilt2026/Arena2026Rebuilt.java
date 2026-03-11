@@ -22,7 +22,7 @@ import java.util.List;
 import org.dyn4j.dynamics.Settings;
 import org.ironmaple.simulation.SimulatedArena;
 
-public class Arena2026Rebuilt extends SimulatedArena {
+public class Arena2026Rebuilt extends SimulatedArena implements Arena2026 {
 
     protected boolean shouldClock = true;
 

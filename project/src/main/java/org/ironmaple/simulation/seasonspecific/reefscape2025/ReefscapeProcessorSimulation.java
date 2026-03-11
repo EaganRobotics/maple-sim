@@ -68,7 +68,7 @@ public class ReefscapeProcessorSimulation extends Goal {
                     Meters.of(1.7),
                     MetersPerSecond.of(7),
                     Degrees.of(45));
-            this.arena.getGamePieceManager().spawnInFlight(proj1);
+            this.arena.addGamePieceProjectile(proj1);
             proj1.launch();
         } else {
             arena.addToScore(isBlue, 6);
@@ -80,7 +80,7 @@ public class ReefscapeProcessorSimulation extends Goal {
                     Meters.of(1.7),
                     MetersPerSecond.of(7),
                     Degrees.of(45));
-            this.arena.getGamePieceManager().spawnInFlight(proj2);
+            this.arena.addGamePieceProjectile(proj2);
             proj2.launch();
         }
     }

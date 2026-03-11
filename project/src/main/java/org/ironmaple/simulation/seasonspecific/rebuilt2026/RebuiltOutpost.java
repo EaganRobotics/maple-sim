@@ -12,6 +12,7 @@ import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.LinearVelocity;
 import java.util.*;
+import org.ironmaple.simulation.Arena;
 import org.ironmaple.simulation.Goal;
 
 /**
@@ -41,7 +42,7 @@ public class RebuiltOutpost extends Goal {
 
     StructPublisher<Pose3d> posePublisher;
 
-    protected Arena2026Rebuilt arena;
+    protected Arena arena;
 
     /**
      *
@@ -51,7 +52,7 @@ public class RebuiltOutpost extends Goal {
      * @param arena The host arena of this outpost.
      * @param isBlue Wether this is the blue outpost or the red one.
      */
-    public RebuiltOutpost(Arena2026Rebuilt arena, boolean isBlue) {
+    public RebuiltOutpost(Arena arena, boolean isBlue) {
         super(
                 arena,
                 Centimeters.of(3),
@@ -81,11 +82,7 @@ public class RebuiltOutpost extends Goal {
         OutpostThrowPublisher.set(new Pose3d(isBlue ? blueLaunchPose : redLaunchPose, new Rotation3d()));
 
         // Register with game piece manager for unified rendering
-        arena.getGamePieceManager().registerPoseSource((type, list) -> {
-            if ("Fuel".equals(type)) {
-                draw(list);
-            }
-        });
+        arena.registerGamePieceVisualizationSource("Fuel", this::draw);
     }
 
     @Override
@@ -157,7 +154,7 @@ public class RebuiltOutpost extends Goal {
     public void dump() {
         for (int i = 0; i < 24 && gamePieceCount > 0; i++) {
             gamePieceCount--;
-            this.arena.addPieceWithVariance(
+            addPieceWithVariance(
                     isBlue ? blueDumpPose.toTranslation2d() : redDumpPose.toTranslation2d(),
                     new Rotation2d(),
                     Meters.of(1.7),
@@ -186,7 +183,7 @@ public class RebuiltOutpost extends Goal {
     public void throwFuel(Rotation2d yaw, Angle pitch, LinearVelocity speed) {
         if (gamePieceCount > 0) {
             gamePieceCount--;
-            arena.addPieceWithVariance(
+            addPieceWithVariance(
                     isBlue ? blueLaunchPose.toTranslation2d() : redLaunchPose.toTranslation2d(),
                     yaw,
                     Meters.of(1.7),
@@ -198,5 +195,31 @@ public class RebuiltOutpost extends Goal {
                     2,
                     5);
         }
+    }
+
+    private void addPieceWithVariance(
+            Translation2d piecePose,
+            Rotation2d yaw,
+            edu.wpi.first.units.measure.Distance height,
+            LinearVelocity speed,
+            Angle pitch,
+            double xVariance,
+            double yVariance,
+            double yawVariance,
+            double speedVariance,
+            double pitchVariance) {
+        var projectile = new RebuiltFuelOnFly(
+                piecePose.plus(new Translation2d(randomInRange(xVariance), randomInRange(yVariance))),
+                new Translation2d(),
+                new edu.wpi.first.math.kinematics.ChassisSpeeds(),
+                yaw.plus(Rotation2d.fromDegrees(randomInRange(yawVariance))),
+                height,
+                speed.plus(MetersPerSecond.of(randomInRange(speedVariance))),
+                Degrees.of(pitch.in(Degrees) + randomInRange(pitchVariance)));
+        this.arena.addGamePieceProjectile(projectile);
+    }
+
+    private static double randomInRange(double variance) {
+        return (Math.random() - 0.5) * variance;
     }
 }

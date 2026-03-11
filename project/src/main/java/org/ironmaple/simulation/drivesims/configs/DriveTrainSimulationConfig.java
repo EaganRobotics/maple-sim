@@ -31,6 +31,12 @@ public class DriveTrainSimulationConfig {
     public Translation2d[] moduleTranslations;
     public Translation3d centerOfMass;
 
+    // New configurable fields with defaults matching previous constants
+    public Distance chassisHeight = Meters.of(0.1);
+    public Distance wheelRadius = Meters.of(0.0508);
+    public Distance groundClearance = Meters.of(0.05);
+    public java.util.Optional<String> chassisMeshResourcePath = java.util.Optional.empty();
+
     /**
      *
      *
@@ -399,5 +405,52 @@ public class DriveTrainSimulationConfig {
         BoundingCheck.check(
                 centerOfMass.getY(), -halfBumperWidthY, halfBumperWidthY, "center of mass Y coordinate", "meters");
         BoundingCheck.check(centerOfMass.getZ(), 0.0, 4.0, "center of mass height (Z coordinate)", "meters");
+    }
+
+    /**
+     *
+     *
+     * <h2>Sets the chassis geometry and ground clearance.</h2>
+     *
+     * <p>Configures the physical dimensions of the robot chassis and its stance relative to the ground. The simulation
+     * uses a "Ground Compliance" model to simulate the interaction between the wheels and the ground. Unlike a typical
+     * suspension which is bouncy, this model is tuned to be very stiff (rigid) to mimic the behavior of a standard FRC
+     * robot frame, which has very little suspension travel.
+     *
+     * <p>The `groundClearance` parameter explicitly defines the distance from the ground to the bottom of the
+     * bumpers/chassis. The simulation dynamically calculates the necessary spring rest lengths to maintain this
+     * clearance under the robot's weight.
+     *
+     * @param chassisHeight Height (thickness) of the chassis collision box (usually the bumper height).
+     * @param wheelRadius Radius of the wheels.
+     * @param groundClearance The desired vertical distance from the ground to the bottom of the chassis (bumpers). This
+     *     should be set to the robot's actual ground clearance (e.g. 1.5 inches).
+     * @return the config instance.
+     */
+    public DriveTrainSimulationConfig withChassisConfig(
+            Distance chassisHeight, Distance wheelRadius, Distance groundClearance) {
+        this.chassisHeight = chassisHeight;
+        this.wheelRadius = wheelRadius;
+        this.groundClearance = groundClearance;
+
+        BoundingCheck.check(chassisHeight.in(Meters), 0.01, 1.0, "chassis height", "meters");
+        BoundingCheck.check(wheelRadius.in(Meters), 0.01, 0.5, "wheel radius", "meters");
+        BoundingCheck.check(groundClearance.in(Meters), 0.0, 1.0, "ground clearance", "meters");
+        return this;
+    }
+
+    /**
+     *
+     *
+     * <h2>Sets the chassis collision mesh.</h2>
+     *
+     * <p>Specifies a custom .obj file to use for the chassis collision shape.
+     *
+     * @param meshResourcePath path to the .obj file in the resources directory (e.g., "meshes/chassis.obj")
+     * @return the config instance
+     */
+    public DriveTrainSimulationConfig withChassisMesh(String meshResourcePath) {
+        this.chassisMeshResourcePath = java.util.Optional.of(meshResourcePath);
+        return this;
     }
 }

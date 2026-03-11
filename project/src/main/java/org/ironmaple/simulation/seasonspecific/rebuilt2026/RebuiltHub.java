@@ -23,7 +23,7 @@ import org.ironmaple.utils.FieldMirroringUtils;
  */
 public class RebuiltHub extends Goal {
 
-    private static final Translation2d blueHubPose = new Translation2d(4.626, 4.0);
+    private static final Translation2d blueHubPose = new Translation2d(4.61, 4.025);
     private static final Translation2d redHubPose = flip(blueHubPose);
 
     public static final Translation3d BLUE_HUB_POS = new Translation3d(blueHubPose.getX(), blueHubPose.getY(), 1.5748);
@@ -55,7 +55,7 @@ public class RebuiltHub extends Goal {
             .toArray(Pose3d[]::new);
 
     StructPublisher<Pose3d> posePublisher;
-    protected final Arena2026Rebuilt arena;
+    protected final Arena2026 arena;
 
     /**
      *
@@ -65,7 +65,7 @@ public class RebuiltHub extends Goal {
      * @param arena The host arena of this HUB.
      * @param isBlue Wether this is the blue HUB or the red one.
      */
-    public RebuiltHub(Arena2026Rebuilt arena, boolean isBlue) {
+    public RebuiltHub(Arena2026 arena, boolean isBlue) {
         super(
                 arena,
                 Inches.of(47),

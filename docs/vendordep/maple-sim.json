@@ -1,7 +1,7 @@
 {
     "fileName": "maple-sim.json",
     "name": "maplesim",
-    "version": "0.4.0",
+    "version": "1.0.0",
     "frcYear": "2026",
     "uuid": "c39481e8-4a63-4a4c-9df6-48d91e4da37b",
     "mavenUrls": [
@@ -13,18 +13,59 @@
         {
             "groupId": "org.ironmaple",
             "artifactId": "maplesim-java",
-            "version": "0.4.0"
+            "version": "1.0.0"
         },
         {
             "groupId": "org.dyn4j",
             "artifactId": "dyn4j",
             "version": "5.0.2"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "jolt-jni-Windows64",
+            "version": "3.5.2"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "jolt-jni-Linux64",
+            "version": "3.5.2"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "jolt-jni-MacOSX_ARM64",
+            "version": "3.5.2"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "jolt-jni-MacOSX64",
+            "version": "3.5.2"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "Libbulletjme-Windows64",
+            "version": "22.0.3"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "Libbulletjme-Linux64",
+            "version": "22.0.3"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "Libbulletjme-MacOSX_ARM64",
+            "version": "22.0.3"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "Libbulletjme-MacOSX64",
+            "version": "22.0.3"
+        },
+        {
+            "groupId": "io.github.electrostat-lab",
+            "artifactId": "snaploader",
+            "version": "1.1.1-stable"
         }
     ],
-    "jniDependencies": [
-
-    ],
-    "cppDependencies": [
-
-    ]
+    "jniDependencies": [],
+    "cppDependencies": []
 }

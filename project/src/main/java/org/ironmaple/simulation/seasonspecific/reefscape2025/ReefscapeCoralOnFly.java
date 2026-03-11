@@ -3,6 +3,7 @@ package org.ironmaple.simulation.seasonspecific.reefscape2025;
 import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -10,8 +11,7 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
+import org.ironmaple.simulation.Arena;
 import org.ironmaple.simulation.gamepieces.GamePieceProjectile;
 import org.ironmaple.utils.FieldMirroringUtils;
 
@@ -80,21 +80,16 @@ public class ReefscapeCoralOnFly extends GamePieceProjectile {
     }
 
     @Override
-    public void addGamePieceAfterTouchGround(SimulatedArena simulatedArena) {
+    public void addGamePieceAfterTouchGround(Arena arena) {
         if (!super.becomesGamePieceOnGroundAfterTouchGround) return;
-        simulatedArena
-                .getGamePieceManager()
-                .spawnOnField(new GamePieceOnFieldSimulation(
-                        ReefscapeCoralOnField.REEFSCAPE_CORAL_INFO,
-                        () -> Math.max(
-                                ReefscapeCoralOnField.REEFSCAPE_CORAL_INFO
-                                                .gamePieceHeight()
-                                                .in(Meters)
-                                        / 2,
-                                getPositionAtTime(super.launchedTimer.get()).getZ()),
-                        new Pose2d(
-                                getPositionAtTime(launchedTimer.get()).toTranslation2d(),
-                                initialLaunchingVelocityMPS.getAngle()),
-                        super.initialLaunchingVelocityMPS));
+        arena.spawnGamePieceOnField(
+                ReefscapeCoralOnField.REEFSCAPE_CORAL_INFO,
+                new Pose3d(
+                        getPositionAtTime(super.launchedTimer.get()),
+                        new edu.wpi.first.math.geometry.Rotation3d(
+                                0,
+                                0,
+                                super.initialLaunchingVelocityMPS.getAngle().getRadians())),
+                getVelocity3dMPS());
     }
 }
