@@ -102,6 +102,20 @@ public interface PhysicsEngine {
     /**
      *
      *
+     * <h2>Creates a Kinematic Body.</h2>
+     *
+     * <p>Kinematic bodies are moved by code (setting velocity/position) but push dynamic bodies. They essentially have
+     * infinite mass but move according to script.
+     *
+     * @param shape the collision shape
+     * @param pose the initial pose
+     * @return the created physics body
+     */
+    PhysicsBody createKinematicBody(PhysicsShape shape, Pose3d pose);
+
+    /**
+     *
+     *
      * <h2>Creates a compound shape with an offset.</h2>
      *
      * <p>Wraps the given shape in a compound shape that applies the specified translation offset. This is useful for

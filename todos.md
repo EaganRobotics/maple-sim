@@ -1,10 +1,7 @@
 - [x] 3D physics and field (bullet)
 - [x] complex V-HACD collision models imported, positioned, working
 - [x] Jolt physics backend
-- [ ] Threaded physics deterministic
-    - Still some issues in testing analysis, more to come
-    - https://gemini.google.com/app/61d3a40eba2f2b54
-- [ ] High fidelity swerve simulation
+- [x] High fidelity swerve simulation
     - https://gemini.google.com/app/bea3ec17c223b970
 - [ ] Robot CAD collision models with V-HACD
 - [ ] Support climbing in simulation
@@ -14,3 +11,4 @@
     - [ ] Climbing in teleop & auto
 - [ ] Human player
 - [x] Soft body Fuel simulation
+- [ ] Nail down APIs

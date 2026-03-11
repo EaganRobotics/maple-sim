@@ -35,6 +35,7 @@ public class DriveTrainSimulationConfig {
     public Distance chassisHeight = Meters.of(0.1);
     public Distance wheelRadius = Meters.of(0.0508);
     public Distance groundClearance = Meters.of(0.05);
+    public java.util.Optional<String> chassisMeshResourcePath = java.util.Optional.empty();
 
     /**
      *
@@ -435,7 +436,21 @@ public class DriveTrainSimulationConfig {
         BoundingCheck.check(chassisHeight.in(Meters), 0.01, 1.0, "chassis height", "meters");
         BoundingCheck.check(wheelRadius.in(Meters), 0.01, 0.5, "wheel radius", "meters");
         BoundingCheck.check(groundClearance.in(Meters), 0.0, 1.0, "ground clearance", "meters");
+        return this;
+    }
 
+    /**
+     *
+     *
+     * <h2>Sets the chassis collision mesh.</h2>
+     *
+     * <p>Specifies a custom .obj file to use for the chassis collision shape.
+     *
+     * @param meshResourcePath path to the .obj file in the resources directory (e.g., "meshes/chassis.obj")
+     * @return the config instance
+     */
+    public DriveTrainSimulationConfig withChassisMesh(String meshResourcePath) {
+        this.chassisMeshResourcePath = java.util.Optional.of(meshResourcePath);
         return this;
     }
 }

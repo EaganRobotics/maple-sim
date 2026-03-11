@@ -127,35 +127,5 @@ public interface PhysicsBackend {
      */
     void setGravity(Translation3d gravity);
 
-    /**
-     * Checks if this backend is running in threaded mode.
-     *
-     * @return true if physics runs on a dedicated thread
-     */
-    default boolean isThreaded() {
-        return false;
-    }
-
-    /**
-     * Gets the threaded physics proxy for async operations.
-     *
-     * @return the proxy, or null if not in threaded mode
-     */
-    default org.ironmaple.simulation.physics.threading.ThreadedPhysicsProxy getThreadedProxy() {
-        return null;
-    }
-
-    /**
-     * Flushes queued inputs to the physics thread.
-     *
-     * <p>Only has effect in threaded mode. Call at end of simulation period.
-     */
-    default void flushInputs() {}
-
-    /**
-     * Pulls the latest state from the physics thread.
-     *
-     * <p>Only has effect in threaded mode. Call at start of simulation period.
-     */
     default void pullLatestState() {}
 }

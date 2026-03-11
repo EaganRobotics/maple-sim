@@ -20,7 +20,6 @@ import org.ironmaple.simulation.SimulatedArena3D;
 import org.ironmaple.simulation.gamepieces.FuelBall;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation3D;
 import org.ironmaple.simulation.physics.PhysicsShape;
-import org.ironmaple.simulation.physics.threading.PhysicsThreadConfig;
 
 public class Arena2026Rebuilt3D extends SimulatedArena3D implements Arena2026 {
     protected final boolean useAdvancedFuelPhysics;
@@ -50,15 +49,11 @@ public class Arena2026Rebuilt3D extends SimulatedArena3D implements Arena2026 {
     private double fuelSeparationGap = 0.001; // 1mm
 
     public Arena2026Rebuilt3D() {
-        this(PhysicsThreadConfig.DEFAULT, false);
+        this(false);
     }
 
-    public Arena2026Rebuilt3D(PhysicsThreadConfig config) {
-        this(config, false);
-    }
-
-    public Arena2026Rebuilt3D(PhysicsThreadConfig config, boolean useAdvancedFuelPhysics) {
-        super(new RebuiltFieldObstacleMap3D(), config);
+    public Arena2026Rebuilt3D(boolean useAdvancedFuelPhysics) {
+        super(new RebuiltFieldObstacleMap3D());
         this.useAdvancedFuelPhysics = useAdvancedFuelPhysics;
 
         blueHub = new RebuiltHub(this, true);

@@ -8,6 +8,9 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
 import org.ironmaple.simulation.SimulatedArena3D;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.simulation.physics.PhysicsBody;
@@ -42,6 +45,7 @@ public abstract class AbstractDriveTrainSimulation3D implements SimulatedArena3D
     protected PhysicsBody physicsBody;
     protected PhysicsEngine physicsEngine;
     protected SimulatedArena3D arena;
+    protected final List<MechanismSimulation> mechanisms = new ArrayList<>();
 
     /**
      *
@@ -94,13 +98,26 @@ public abstract class AbstractDriveTrainSimulation3D implements SimulatedArena3D
         this.arena = arena;
         this.physicsEngine = arena.getPhysicsEngine();
 
-        // Create collision shape (box)
+        // Create collision shape
+        PhysicsShape shape = null;
+        if (config.chassisMeshResourcePath.isPresent()) {
+            try {
+                shape = physicsEngine.createCompoundShapeFromMesh(config.chassisMeshResourcePath.get());
+            } catch (Exception e) {
+                System.err.println("Failed to load chassis mesh: " + config.chassisMeshResourcePath.get());
+                e.printStackTrace();
+            }
+        }
+
         double lengthX = config.bumperLengthX.in(Meters);
         double widthY = config.bumperWidthY.in(Meters);
         double chassisBodyHeight = config.chassisHeight.in(Meters);
 
-        Translation3d halfExtents = new Translation3d(lengthX / 2, widthY / 2, chassisBodyHeight / 2);
-        PhysicsShape shape = physicsEngine.createBoxShape(halfExtents);
+        // Fallback to box if mesh not loaded
+        if (shape == null) {
+            Translation3d halfExtents = new Translation3d(lengthX / 2, widthY / 2, chassisBodyHeight / 2);
+            shape = physicsEngine.createBoxShape(halfExtents);
+        }
 
         // Initial height of chassis bottom above ground
         double spawnGroundClearance = config.groundClearance.in(Meters);
@@ -336,4 +353,91 @@ public abstract class AbstractDriveTrainSimulation3D implements SimulatedArena3D
      */
     @Override
     public abstract void simulationSubTick(int subTickNum);
+
+    /**
+     *
+     *
+     * <h2>Updates the status of registered mechanisms.</h2>
+     *
+     * <p>Moves the mechanism physics bodies to match the robot's current pose plus the mechanism's relative pose. This
+     * should be called in the simulation loop.
+     */
+    protected void updateMechanisms() {
+        if (physicsBody == null) return;
+        Pose3d robotPose = physicsBody.getPose3d();
+
+        for (MechanismSimulation mechanism : mechanisms) {
+            Pose3d relativePose = mechanism.robotRelativePoseSupplier.get();
+            // Transform relative pose to world pose: World = Robot * Relative
+            // Note: Pose3d.transformBy puts the argument in the frame of the caller.
+            // But here we want to compose: robotPose + relativePose.
+            // WPILib's transformBy does: new Pose(this.translation +
+            // other.translation.rotateBy(this.rotation), this.rotation + other.rotation)
+            // Which is exactly what we want for "robotPose.transformBy(relativePose)" if
+            // relativePose is a Transform3d equivalent.
+            // But we have Pose3d. Converting Pose3d to Transform3d is trivial.
+
+            Pose3d worldPose = robotPose.transformBy(new edu.wpi.first.math.geometry.Transform3d(
+                    relativePose.getTranslation(), relativePose.getRotation()));
+
+            mechanism.body.setPose3d(worldPose);
+            mechanism.body.setLinearVelocityMPS(physicsBody.getLinearVelocityMPS());
+            mechanism.body.setAngularVelocityRadPerSec(physicsBody.getAngularVelocityRadPerSec());
+        }
+    }
+
+    /**
+     *
+     *
+     * <h2>Registers a Mechanism with a Collision Mesh.</h2>
+     *
+     * <p>Creates a kinematic physics body for a mechanism (e.g. elevator, intake) that moves relative to the robot.
+     *
+     * @param name unique name for the mechanism
+     * @param meshResourcePath path to the .obj file (e.g. "meshes/elevator.obj")
+     * @param initialRobotRelativePose initial pose of the mechanism relative to the robot center
+     * @param robotRelativePoseSupplier supplier that returns the current pose of the mechanism relative to the robot
+     */
+    public void registerMechanism(
+            String name,
+            String meshResourcePath,
+            Pose3d initialRobotRelativePose,
+            Supplier<Pose3d> robotRelativePoseSupplier) {
+        if (arena == null) {
+            throw new IllegalStateException("Cannot register mechanism before registering drivetrain with arena!");
+        }
+
+        try {
+            PhysicsShape shape = physicsEngine.createCompoundShapeFromMesh(meshResourcePath);
+            if (shape == null) {
+                System.err.println("Failed to load mechanism mesh: " + meshResourcePath);
+                return;
+            }
+
+            // Calculate initial world pose
+            Pose3d robotPose = physicsBody != null ? physicsBody.getPose3d() : new Pose3d();
+            Pose3d worldPose = robotPose.transformBy(new edu.wpi.first.math.geometry.Transform3d(
+                    initialRobotRelativePose.getTranslation(), initialRobotRelativePose.getRotation()));
+
+            // Create kinematic body (moved by code, pushes dynamic bodies)
+            PhysicsBody mechBody = physicsEngine.createKinematicBody(shape, worldPose);
+
+            mechanisms.add(new MechanismSimulation(name, mechBody, robotRelativePoseSupplier));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    protected static class MechanismSimulation {
+        public final String name;
+        public final PhysicsBody body;
+        public final Supplier<Pose3d> robotRelativePoseSupplier;
+
+        public MechanismSimulation(String name, PhysicsBody body, Supplier<Pose3d> robotRelativePoseSupplier) {
+            this.name = name;
+            this.body = body;
+            this.robotRelativePoseSupplier = robotRelativePoseSupplier;
+        }
+    }
 }

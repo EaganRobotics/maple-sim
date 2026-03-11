@@ -10,9 +10,6 @@ import org.ironmaple.simulation.physics.PhysicsBackend;
 import org.ironmaple.simulation.physics.PhysicsBody;
 import org.ironmaple.simulation.physics.PhysicsEngine;
 import org.ironmaple.simulation.physics.PhysicsShape;
-import org.ironmaple.simulation.physics.threading.PhysicsThread;
-import org.ironmaple.simulation.physics.threading.PhysicsThreadConfig;
-import org.ironmaple.simulation.physics.threading.ThreadedPhysicsProxy;
 
 /**
  *
@@ -21,34 +18,15 @@ import org.ironmaple.simulation.physics.threading.ThreadedPhysicsProxy;
  *
  * <p>Implements the {@link PhysicsBackend} interface using Bullet Physics via Libbulletjme. This provides high-fidelity
  * 3D physics simulation.
- *
- * <h2>Threading Support</h2>
- *
- * <p>When constructed with a {@link PhysicsThreadConfig} that has threading enabled, physics runs on a dedicated
- * background thread at the configured tick rate (default 120Hz).
  */
 public class BulletBackend implements PhysicsBackend {
     private final BulletPhysicsEngine engine;
-    // The engine exposed to external users (wrapped if threaded)
     private PhysicsEngine exposedEngine;
-    private final PhysicsThreadConfig threadConfig;
-    private PhysicsThread physicsThread;
-    private ThreadedPhysicsProxy threadedProxy;
     private boolean initialized = false;
 
-    /** Creates a backend with default configuration (threading disabled). */
+    /** Creates a backend. */
     public BulletBackend() {
-        this(PhysicsThreadConfig.DEFAULT);
-    }
-
-    /**
-     * Creates a backend with the specified threading configuration.
-     *
-     * @param threadConfig Threading configuration
-     */
-    public BulletBackend(PhysicsThreadConfig threadConfig) {
         this.engine = new BulletPhysicsEngine();
-        this.threadConfig = threadConfig;
     }
 
     @Override
@@ -63,18 +41,8 @@ public class BulletBackend implements PhysicsBackend {
         // Ensure native library is loaded so we can create shapes on main thread
         BulletPhysicsEngine.loadLibrary();
 
-        if (threadConfig.enabled()) {
-            physicsThread = new PhysicsThread(engine, threadConfig);
-            threadedProxy = new ThreadedPhysicsProxy(physicsThread);
-            // Wrap the engine
-            exposedEngine = new org.ironmaple.simulation.physics.threading.ThreadedPhysicsEngine(engine, threadedProxy);
-            physicsThread.start();
-            // System.out.println("[MapleSim3D] Physics thread started at " +
-            // threadConfig.tickRateHz() + " Hz");
-        } else {
-            engine.initialize();
-            exposedEngine = engine;
-        }
+        engine.initialize();
+        exposedEngine = engine;
 
         initialized = true;
     }
@@ -83,18 +51,6 @@ public class BulletBackend implements PhysicsBackend {
     public void shutdown() {
         if (!initialized) return;
 
-        if (physicsThread != null) {
-            physicsThread.shutdown();
-            try {
-                physicsThread.join(1000); // Wait up to 1 second
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            physicsThread = null;
-            threadedProxy = null;
-            // System.out.println("[MapleSim3D] Physics thread stopped");
-        }
-
         engine.shutdown();
         initialized = false;
     }
@@ -102,11 +58,7 @@ public class BulletBackend implements PhysicsBackend {
     @Override
     public void step(Time deltaTime) {
         ensureInitialized();
-        if (!isThreaded()) {
-            // Synchronous mode: step the engine directly
-            engine.step(deltaTime);
-        }
-        // In threaded mode, physics runs continuously on its own thread
+        engine.step(deltaTime);
     }
 
     @Override
@@ -174,55 +126,6 @@ public class BulletBackend implements PhysicsBackend {
     public PhysicsEngine getEngine() {
         ensureInitialized();
         return exposedEngine;
-    }
-
-    /**
-     * Checks if this backend is running in threaded mode.
-     *
-     * @return true if physics runs on a dedicated thread
-     */
-    public boolean isThreaded() {
-        return threadConfig.enabled() && physicsThread != null && physicsThread.isRunning();
-    }
-
-    /**
-     * Gets the threaded physics proxy for async operations.
-     *
-     * @return the proxy, or null if not in threaded mode
-     */
-    public ThreadedPhysicsProxy getThreadedProxy() {
-        return threadedProxy;
-    }
-
-    /**
-     * Flushes queued inputs to the physics thread.
-     *
-     * <p>Only has effect in threaded mode. Call at end of simulation period.
-     */
-    public void flushInputs() {
-        if (isThreaded() && threadedProxy != null) {
-            threadedProxy.flushInputs();
-        }
-    }
-
-    /**
-     * Pulls the latest state from the physics thread.
-     *
-     * <p>Only has effect in threaded mode. Call at start of simulation period.
-     */
-    public void pullLatestState() {
-        if (isThreaded() && threadedProxy != null) {
-            threadedProxy.pullLatestState();
-        }
-    }
-
-    /**
-     * Gets the threading configuration.
-     *
-     * @return the thread config
-     */
-    public PhysicsThreadConfig getThreadConfig() {
-        return threadConfig;
     }
 
     private void ensureInitialized() {

@@ -25,7 +25,6 @@ import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.ironmaple.simulation.physics.PhysicsBody;
 import org.ironmaple.simulation.physics.PhysicsEngine;
 import org.ironmaple.simulation.physics.PhysicsShape;
-import org.ironmaple.simulation.physics.threading.PhysicsThreadConfig;
 
 /**
  *
@@ -45,11 +44,12 @@ import org.ironmaple.simulation.physics.threading.PhysicsThreadConfig;
  */
 public abstract class SimulatedArena3D implements Arena {
     /** Whether to allow the simulation to run a real robot. HIGHLY RECOMMENDED to be turned OFF */
+    @Deprecated(forRemoval = true)
     public static boolean ALLOW_CREATION_ON_REAL_ROBOT = false;
 
     // ==================== Singleton Management ====================
     private static SimulatedArena3D instance;
-    private static PhysicsThreadConfig defaultPhysicsConfig = PhysicsThreadConfig.DEFAULT;
+    private static int defaultJoltWorkerThreads = 4;
 
     /**
      * Gets the arena singleton instance.
@@ -61,18 +61,18 @@ public abstract class SimulatedArena3D implements Arena {
     }
 
     /**
-     * Configures the default physics thread settings for arena creation.
+     * Configures the Jolt Physics Engine worker thread count.
      *
      * <p>Must be called BEFORE the arena is created. Has no effect after creation.
      *
-     * @param config the physics configuration (e.g., PhysicsThreadConfig.enabled(120))
+     * @param workerThreads Number of worker threads (default 4)
      */
-    public static void configurePhysics(PhysicsThreadConfig config) {
+    public static void configureJolt(int workerThreads) {
         if (instance != null) {
             throw new IllegalStateException(
-                    "Cannot configure physics after arena is created! Call configurePhysics() before creating the arena.");
+                    "Cannot configure physics after arena is created! Call configureJolt() before creating the arena.");
         }
-        defaultPhysicsConfig = config;
+        defaultJoltWorkerThreads = workerThreads;
     }
 
     /**
@@ -85,17 +85,9 @@ public abstract class SimulatedArena3D implements Arena {
             instance.shutdown();
             instance = null;
         }
-        defaultPhysicsConfig = PhysicsThreadConfig.DEFAULT;
+        defaultJoltWorkerThreads = 4;
     }
 
-    /**
-     * Gets the default physics configuration.
-     *
-     * @return the currently configured physics settings
-     */
-    public static PhysicsThreadConfig getDefaultPhysicsConfig() {
-        return defaultPhysicsConfig;
-    }
     // ==================== End Singleton Management ====================
 
     protected int redScore = 0;
@@ -142,57 +134,8 @@ public abstract class SimulatedArena3D implements Arena {
         return SIMULATION_DT;
     }
 
-    /** Physics tick rate when using threaded physics (Hz). Default 120Hz. */
-    private static int PHYSICS_TICK_RATE_HZ = 120;
-
-    /**
-     * Sets the physics tick rate for threaded mode.
-     *
-     * @param rateHz Tick rate in Hz (e.g., 120 for 8.3ms ticks)
-     */
-    public static void setPhysicsTickRateHz(int rateHz) {
-        PHYSICS_TICK_RATE_HZ = rateHz;
-    }
-
-    /**
-     * Gets the physics tick rate for threaded mode.
-     *
-     * @return Tick rate in Hz
-     */
-    public static int getPhysicsTickRateHz() {
-        return PHYSICS_TICK_RATE_HZ;
-    }
-
-    /**
-     * Gets the physics tick period in seconds.
-     *
-     * <p>When running threaded, this is the actual physics time step. When sync, this is 1/tickRateHz.
-     *
-     * @return Tick period in seconds
-     */
-    public double getPhysicsTickPeriodSeconds() {
-        return 1.0 / PHYSICS_TICK_RATE_HZ;
-    }
-
-    /**
-     * Gets the number of physics sub-steps per frame in threaded mode.
-     *
-     * @return Number of sub-steps (default 5)
-     */
-    public static int getPhysicsSubTicksPerFrame() {
-        return defaultPhysicsConfig.subTicksPerFrame();
-    }
-
-    /** Last measured physics CPU time (sync mode) or tick duration (threaded mode) in seconds. */
+    /** Last measured physics CPU time in seconds. */
     private double lastPhysicsCpuTimeSeconds = 0.0;
-
-    /**
-     * Whether to wait for physics frame completion in threaded mode. When true, simulationPeriodic() blocks until
-     * physics is done, ensuring the freshest state is available but reducing parallelism.
-     *
-     * <p>Default: false for pipelined execution (Option C).
-     */
-    private boolean waitForPhysicsCompletion = false;
 
     /** The 3D physics backend. */
     protected final org.ironmaple.simulation.physics.PhysicsBackend physicsBackend;
@@ -209,9 +152,6 @@ public abstract class SimulatedArena3D implements Arena {
     /** Registered projectiles. */
     protected final Set<GamePieceProjectile> projectiles = new HashSet<>();
 
-    /** Frame counter for synchronization verification. */
-    protected long frameCounter = 0;
-
     /** Custom simulations. */
     protected final List<Simulatable> customSimulations = new ArrayList<>();
 
@@ -226,18 +166,6 @@ public abstract class SimulatedArena3D implements Arena {
      * @param fieldMap the field map defining static obstacles
      */
     protected SimulatedArena3D(FieldMap3D fieldMap) {
-        this(fieldMap, PhysicsThreadConfig.DEFAULT);
-    }
-
-    /**
-     *
-     *
-     * <h2>Constructs a new 3D simulation arena with threading configuration.</h2>
-     *
-     * @param fieldMap the field map defining static obstacles
-     * @param threadConfig threading configuration for physics
-     */
-    protected SimulatedArena3D(FieldMap3D fieldMap, PhysicsThreadConfig threadConfig) {
         // Fail-fast: prevent multiple arenas
         if (instance != null) {
             throw new IllegalStateException("SimulatedArena3D already created! Only one arena instance is allowed. "
@@ -245,31 +173,24 @@ public abstract class SimulatedArena3D implements Arena {
                     + "or call SimulatedArena3D.resetInstance() first if you need a new arena.");
         }
 
-        if (RobotBase.isReal() && (!ALLOW_CREATION_ON_REAL_ROBOT)) {
-            throw new IllegalStateException("MapleSim3D is running on a real robot! "
-                    + "(If you would actually want that, set SimulatedArena3D.ALLOW_CREATION_ON_REAL_ROBOT to true).");
+        if (RobotBase.isReal()) {
+            throw new IllegalStateException("MapleSim3D cannot be instantiated on a real robot! "
+                    + "Ensure you only initialize the arena in simulation. Example:\n"
+                    + "if (RobotBase.isSimulation()) {\n"
+                    + "    arena = new MySimulatedArena();\n"
+                    + "}");
         }
 
         // Register as singleton immediately
         instance = this;
 
-        // Use configured tick rate if threading is enabled, attempting to preserve
-        // sub-ticks
-        PhysicsThreadConfig config = threadConfig;
-        if (threadConfig.enabled()) {
-            // Respect the configuration passed in, ignoring the static PHYSICS_TICK_RATE_HZ
-            // default
-            config = threadConfig;
-        }
+        org.ironmaple.simulation.physics.jolt.JoltBackend joltBackend =
+                new org.ironmaple.simulation.physics.jolt.JoltBackend();
+        joltBackend.setWorkerThreadCount(defaultJoltWorkerThreads);
+        this.physicsBackend = joltBackend;
 
-        this.physicsBackend = new org.ironmaple.simulation.physics.jolt.JoltBackend(config);
         this.physicsBackend.initialize();
-        this.physicsEngine = ((org.ironmaple.simulation.physics.jolt.JoltBackend) physicsBackend).getEngine();
-        // this.physicsBackend = new
-        // org.ironmaple.simulation.physics.bullet.BulletBackend(config);
-        // this.physicsBackend.initialize();
-        // this.physicsEngine = ((org.ironmaple.simulation.physics.bullet.BulletBackend)
-        // physicsBackend).getEngine();
+        this.physicsEngine = joltBackend.getEngine();
 
         // Set gravity (downward)
         physicsBackend.setGravity(new Translation3d(0, 0, -9.81));
@@ -306,10 +227,6 @@ public abstract class SimulatedArena3D implements Arena {
         setupValueForMatchBreakdown("Auto/AutoScore");
         resetFieldPublisher.set(false);
         if (instance == null) instance = this;
-
-        // Ensure initial settings (gravity, static bodies) are sent to the thread
-        // immediately
-        physicsBackend.flushInputs();
     }
 
     /**
@@ -343,75 +260,22 @@ public abstract class SimulatedArena3D implements Arena {
      *
      * <p>Call this ONCE in TimedRobot.simulationPeriodic().
      *
-     * <p>In synchronous mode (default), runs multiple sub-ticks per period. In threaded mode with lock-step pipelining:
-     *
-     * <ol>
-     *   <li>Pull state from frame N-1 (already computed by physics thread)
-     *   <li>Run custom simulations with that state (robot code uses N-1 state)
-     *   <li>Flush inputs for frame N (signals physics thread to process)
-     *   <li>Optionally wait for physics to complete (for determinism testing)
-     * </ol>
-     *
-     * <p>This lock-step approach ensures determinism: physics only runs when explicitly signaled, eliminating
-     * wall-clock timing jitter.
+     * <p>Runs multiple sub-ticks per period.
      */
     public synchronized void simulationPeriodic() {
         synchronized (SimulatedArena3D.class) {
             final long t0 = System.nanoTime();
 
-            if (physicsBackend.isThreaded()) {
-                var proxy = physicsBackend.getThreadedProxy();
-
-                // ==================== LOCK-STEP PIPELINING ====================
-                // Step 1: Pull latest state from physics thread (frame N-1 results)
-                // This state was computed during the previous period.
-                physicsBackend.pullLatestState();
-
-                // Step 2: Run custom simulations with the cached state
-                // Robot code runs here, using the N-1 state for sensor readings
-                // and calculating new outputs for frame N.
-                for (Simulatable customSimulation : customSimulations) {
-                    customSimulation.simulationSubTick(0);
-                }
-
-                // Update projectiles
-                GamePieceProjectile.updateGamePieceProjectiles(this, projectiles);
-
-                // Step 3: Flush inputs for frame N and signal physics thread
-                // The physics thread will wake up and process exactly subTicksPerFrame
-                // iterations with the inputs we just queued.
-                if (waitForPhysicsCompletion && proxy != null) {
-                    // Synchronous: Wait for physics to complete for maximum determinism
-                    // This ensures the state is fully updated before we return.
-                    proxy.flushInputsAndWait();
-                } else {
-                    // Pipelined: Let physics run in parallel while we return
-                    // Next period will use the state from this frame.
-                    physicsBackend.flushInputs();
-                }
-
-                // Match clock advances by one robot period
-                matchClock += TimedRobot.kDefaultPeriod;
-                frameCounter++;
-
-                if (frameCounter % 100 == 0) {
-                    SimDebugLogger.logPerformance("[Main] Frame " + frameCounter + " | Physics State: "
-                            + (proxy != null ? proxy.getCachedState().tickNumber() : "N/A"));
-                }
-            } else {
-                // Synchronous mode: Original behavior with sub-ticks
-                for (int i = 0; i < SIMULATION_SUB_TICKS_IN_1_PERIOD; i++) {
-                    simulationSubTick(i);
-                }
-                matchClock += getSimulationDt().in(Units.Seconds) * SIMULATION_SUB_TICKS_IN_1_PERIOD;
+            // Synchronous mode: Original behavior with sub-ticks
+            for (int i = 0; i < SIMULATION_SUB_TICKS_IN_1_PERIOD; i++) {
+                simulationSubTick(i);
             }
+            matchClock += getSimulationDt().in(Units.Seconds) * SIMULATION_SUB_TICKS_IN_1_PERIOD;
 
             double cpuTimeMs = (System.nanoTime() - t0) / 1_000_000.0;
             this.lastPhysicsCpuTimeSeconds = cpuTimeMs / 1000.0;
 
             SmartDashboard.putNumber("MapleSim3D/PhysicsEngineCPUTimeMS", cpuTimeMs);
-            SmartDashboard.putBoolean("MapleSim3D/ThreadedPhysics", physicsBackend.isThreaded());
-            SmartDashboard.putBoolean("MapleSim3D/LockStepMode", physicsBackend.isThreaded() && isLockStepMode());
             SimDebugLogger.logPerformance(String.format("Sim Periodic Time: %.3f ms", cpuTimeMs));
 
             if (resetFieldSubscriber.get()) {
@@ -479,106 +343,14 @@ public abstract class SimulatedArena3D implements Arena {
     /**
      *
      *
-     * <h2>Checks if physics is running in threaded mode.</h2>
-     *
-     * @return true if physics runs on a dedicated background thread
-     */
-    public boolean isThreaded() {
-        return physicsBackend.isThreaded();
-    }
-
-    /**
-     *
-     *
-     * <h2>Checks if lock-step mode is enabled.</h2>
-     *
-     * <p>Lock-step mode ensures deterministic physics by requiring explicit frame signals from the main thread,
-     * eliminating wall-clock timing jitter.
-     *
-     * @return true if lock-step mode is enabled (only meaningful in threaded mode)
-     */
-    public boolean isLockStepMode() {
-        var proxy = physicsBackend.getThreadedProxy();
-        return proxy != null && proxy.isLockStepMode();
-    }
-
-    /**
-     *
-     *
-     * <h2>Sets lock-step mode for deterministic physics.</h2>
-     *
-     * <p>In lock-step mode (default), physics only runs when the main thread signals a frame, ensuring deterministic
-     * behavior. In free-running mode, physics runs at its configured tick rate using wall-clock timing.
-     *
-     * @param lockStep true for deterministic lock-step, false for free-running
-     */
-    public void setLockStepMode(boolean lockStep) {
-        var proxy = physicsBackend.getThreadedProxy();
-        if (proxy != null) {
-            proxy.setLockStepMode(lockStep);
-        }
-    }
-
-    /**
-     *
-     *
-     * <h2>Sets whether to wait for physics completion each frame.</h2>
-     *
-     * <p>When true (default), simulationPeriodic() blocks until physics completes, ensuring the freshest state is
-     * available. When false, physics runs in parallel (pipelined), using the previous frame's state.
-     *
-     * @param wait true to wait for physics completion, false for pipelined execution
-     */
-    public void setWaitForPhysicsCompletion(boolean wait) {
-        this.waitForPhysicsCompletion = wait;
-    }
-
-    /**
-     *
-     *
-     * <h2>Checks whether physics completion waiting is enabled.</h2>
-     *
-     * @return true if simulationPeriodic() waits for physics completion
-     */
-    public boolean isWaitForPhysicsCompletion() {
-        return waitForPhysicsCompletion;
-    }
-
-    /**
-     *
-     *
-     * <h2>Gets the threaded physics proxy.</h2>
-     *
-     * <p>Use this for thread-safe force/raycast operations in threaded mode.
-     *
-     * @return the proxy, or null if not in threaded mode
-     */
-    public org.ironmaple.simulation.physics.threading.ThreadedPhysicsProxy getThreadedProxy() {
-        return physicsBackend.getThreadedProxy();
-    }
-
-    /**
-     *
-     *
-     * <h2>Shuts down the simulation.</h2>
-     */
-    /**
-     *
-     *
      * <h2>Gets the last physics tick duration.</h2>
      *
-     * <p>In threaded mode, returns the duration of the last background physics tick (pure physics time).
-     *
-     * <p>In sync mode, returns the duration of the last simulationPeriodic call (physics + custom sims).
+     * <p>Returns the duration of the last simulationPeriodic call.
      *
      * @return duration in seconds
      */
     public double getLastPhysicsTickDuration() {
-        if (physicsBackend.isThreaded()) {
-            return physicsBackend.getThreadedProxy().getCachedState().lastTickDurationSeconds();
-        } else {
-            return lastPhysicsCpuTimeSeconds;
-        }
+        return lastPhysicsCpuTimeSeconds;
     }
 
     /**

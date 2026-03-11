@@ -24,7 +24,7 @@ import org.ironmaple.simulation.physics.jolt.JoltPhysicsEngine;
  */
 public class FuelBall extends GamePieceOnFieldSimulation3D {
     // Physical Parameters
-    private static final String TYPE = "FUEL";
+    private static final String TYPE = "Fuel";
     private static final double BASE_RADIUS_METERS = 0.075;
     private static final Mass MASS = Units.Kilograms.of(0.23);
     private static final double LINEAR_DAMPING = 1.0;

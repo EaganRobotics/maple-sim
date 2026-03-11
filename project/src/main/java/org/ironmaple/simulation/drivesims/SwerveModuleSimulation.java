@@ -255,8 +255,9 @@ public class SwerveModuleSimulation {
 
         // Apply "Stiffness" or friction to oppose lateral motion
         // Simple model: Force = -k * velocity, clamped by grip
-        // Using a high stiffness to approximate "no slip" under grip limit
-        final double CORNERING_STIFFNESS = 500.0; // N per m/s
+        // Higher values = more rigid lateral grip (less drift during rotation)
+        // 2000 N/m/s approximates typical FRC tire behavior on carpet
+        final double CORNERING_STIFFNESS = 2000.0; // N per m/s
         double lateralForceNewtons = -lateralVelocityMPS * CORNERING_STIFFNESS;
 
         // --- 3. Traction Circle (Grip Limit) ---
@@ -334,7 +335,7 @@ public class SwerveModuleSimulation {
         Vector2 wheelLeftDirection =
                 new Vector2(moduleWorldFacing.plus(Rotation2d.fromDegrees(90)).getRadians());
         double lateralVelocityMPS = moduleCurrentGroundVelocity.dot(wheelLeftDirection);
-        final double CORNERING_STIFFNESS = 500.0; // N per m/s
+        final double CORNERING_STIFFNESS = 2000.0; // N per m/s
         double lateralForceNewtons = -lateralVelocityMPS * CORNERING_STIFFNESS;
 
         // 4. Traction Circle (Grip Limit)
@@ -359,7 +360,7 @@ public class SwerveModuleSimulation {
      *
      * @return the amount of torque on the wheel by the drive motor, in Newton * Meters
      */
-    private double getDriveWheelTorque() {
+    public double getDriveWheelTorque() {
         driveMotorAppliedVoltage = driveMotorController.updateControlSignal(
                 driveWheelFinalPosition,
                 driveWheelFinalSpeed,

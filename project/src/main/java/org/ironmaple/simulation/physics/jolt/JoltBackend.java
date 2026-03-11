@@ -22,28 +22,11 @@ import org.ironmaple.simulation.physics.PhysicsShape;
  */
 public class JoltBackend implements PhysicsBackend {
     private final JoltPhysicsEngine engine;
-    // The engine exposed to external users (wrapped if threaded)
-    private PhysicsEngine exposedEngine;
-    private final org.ironmaple.simulation.physics.threading.PhysicsThreadConfig threadConfig;
-    private org.ironmaple.simulation.physics.threading.PhysicsThread physicsThread;
-    private org.ironmaple.simulation.physics.threading.ThreadedPhysicsProxy threadedProxy;
     private boolean initialized = false;
 
-    /** Creates a Jolt backend with default configuration (threading disabled). */
+    /** Creates a Jolt backend with default configuration. */
     public JoltBackend() {
-        this(org.ironmaple.simulation.physics.threading.PhysicsThreadConfig.DEFAULT);
-    }
-
-    /**
-     * Creates a Jolt backend with the specified threading configuration.
-     *
-     * @param threadConfig Threading configuration
-     */
-    public JoltBackend(org.ironmaple.simulation.physics.threading.PhysicsThreadConfig threadConfig) {
-        // Configure Jolt engine based on thread config if needed (e.g. max bodies)
-        // For now use default Jolt config
         this.engine = new JoltPhysicsEngine();
-        this.threadConfig = threadConfig;
     }
 
     @Override
@@ -58,26 +41,8 @@ public class JoltBackend implements PhysicsBackend {
         // Ensure native library is loaded so we can create shapes on main thread
         JoltPhysicsEngine.loadLibrary();
 
-        if (threadConfig.enabled()) {
-            // Threaded mode: Initialize engine on physics thread to maintain thread affinity
-            physicsThread = new org.ironmaple.simulation.physics.threading.PhysicsThread(engine, threadConfig);
-            threadedProxy = new org.ironmaple.simulation.physics.threading.ThreadedPhysicsProxy(physicsThread);
-            // Wrap the engine
-            exposedEngine = new org.ironmaple.simulation.physics.threading.ThreadedPhysicsEngine(engine, threadedProxy);
-            physicsThread.start();
-
-            // Wait for physics thread to complete initialization before returning
-            try {
-                physicsThread.waitForInitialization();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted while waiting for physics initialization", e);
-            }
-        } else {
-            // Sync mode: Initialize engine on main thread
-            engine.initialize();
-            exposedEngine = engine;
-        }
+        // Initialize engine on main thread
+        engine.initialize();
 
         initialized = true;
     }
@@ -86,17 +51,6 @@ public class JoltBackend implements PhysicsBackend {
     public void shutdown() {
         if (!initialized) return;
 
-        if (physicsThread != null) {
-            physicsThread.shutdown();
-            try {
-                physicsThread.join(1000); // Wait up to 1 second
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            physicsThread = null;
-            threadedProxy = null;
-        }
-
         engine.shutdown();
         initialized = false;
     }
@@ -104,18 +58,15 @@ public class JoltBackend implements PhysicsBackend {
     @Override
     public void step(Time deltaTime) {
         ensureInitialized();
-        if (!isThreaded()) {
-            // Synchronous mode: step the engine directly
-            engine.step(deltaTime);
-        }
-        // In threaded mode, physics runs continuously on its own thread
+        // Synchronous mode: step the engine directly
+        engine.step(deltaTime);
     }
 
     @Override
     public Object addStaticBox(Translation3d halfExtents, Pose3d pose) {
         ensureInitialized();
-        PhysicsShape shape = exposedEngine.createBoxShape(halfExtents);
-        return exposedEngine.createStaticBody(shape, pose);
+        PhysicsShape shape = engine.createBoxShape(halfExtents);
+        return engine.createStaticBody(shape, pose);
     }
 
     @Override
@@ -131,7 +82,7 @@ public class JoltBackend implements PhysicsBackend {
         double thickness = 0.02; // 2 cm thick
         double height = 0.5; // 50 cm tall
         Translation3d halfExtents = new Translation3d(length / 2, thickness / 2, height / 2);
-        PhysicsShape shape = exposedEngine.createBoxShape(halfExtents);
+        PhysicsShape shape = engine.createBoxShape(halfExtents);
 
         // Position at midpoint
         double midX = (start.getX() + end.getX()) / 2;
@@ -139,77 +90,58 @@ public class JoltBackend implements PhysicsBackend {
         // Jolt rotation is Z-up so this is standard Z rotation
         Pose3d pose = new Pose3d(new Translation3d(midX, midY, height / 2), new Rotation3d(0, 0, angle));
 
-        return exposedEngine.createStaticBody(shape, pose);
+        return engine.createStaticBody(shape, pose);
     }
 
     @Override
     public void removeBody(Object bodyHandle) {
         ensureInitialized();
         if (bodyHandle instanceof PhysicsBody body) {
-            exposedEngine.removeBody(body);
+            engine.removeBody(body);
         }
     }
 
     @Override
     public void removeAllBodies() {
         ensureInitialized();
-        exposedEngine.removeAllBodies();
+        engine.removeAllBodies();
     }
 
     @Override
     public Optional<PhysicsEngine.RaycastResult> raycast(
             Translation3d origin, Translation3d direction, double maxDistance) {
         ensureInitialized();
-        return exposedEngine.raycast(origin, direction, maxDistance);
+        return engine.raycast(origin, direction, maxDistance);
     }
 
     @Override
     public void setGravity(Translation3d gravity) {
         ensureInitialized();
-        exposedEngine.setGravity(gravity);
+        engine.setGravity(gravity);
     }
 
     /**
      * Gets the underlying Jolt physics engine.
      *
-     * @return the Jolt physics engine (wrapped if threaded, or raw if sync)
+     * @return the Jolt physics engine
      */
     public PhysicsEngine getEngine() {
         ensureInitialized();
-        return exposedEngine;
-    }
-
-    @Override
-    public boolean isThreaded() {
-        return threadConfig.enabled() && physicsThread != null && physicsThread.isRunning();
-    }
-
-    @Override
-    public org.ironmaple.simulation.physics.threading.ThreadedPhysicsProxy getThreadedProxy() {
-        return threadedProxy;
-    }
-
-    @Override
-    public void flushInputs() {
-        if (isThreaded() && threadedProxy != null) {
-            threadedProxy.flushInputs();
-        }
-    }
-
-    @Override
-    public void pullLatestState() {
-        if (isThreaded() && threadedProxy != null) {
-            threadedProxy.pullLatestState();
-        }
+        return engine;
     }
 
     /**
-     * Gets the threading configuration.
+     * Sets the number of worker threads for the physics engine.
      *
-     * @return the thread config
+     * <p>Must be called before initialize().
+     *
+     * @param numWorkerThreads number of threads
      */
-    public org.ironmaple.simulation.physics.threading.PhysicsThreadConfig getThreadConfig() {
-        return threadConfig;
+    public void setWorkerThreadCount(int numWorkerThreads) {
+        if (initialized) {
+            throw new IllegalStateException("Cannot set worker thread count after initialization");
+        }
+        engine.setWorkerThreadCount(numWorkerThreads);
     }
 
     private void ensureInitialized() {

@@ -27,7 +27,37 @@
         },
         {
             "groupId": "com.github.stephengold",
+            "artifactId": "jolt-jni-Linux64",
+            "version": "3.5.2"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "jolt-jni-MacOSX_ARM64",
+            "version": "3.5.2"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "jolt-jni-MacOSX64",
+            "version": "3.5.2"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "Libbulletjme-Windows64",
+            "version": "22.0.3"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "Libbulletjme-Linux64",
+            "version": "22.0.3"
+        },
+        {
+            "groupId": "com.github.stephengold",
             "artifactId": "Libbulletjme-MacOSX_ARM64",
+            "version": "22.0.3"
+        },
+        {
+            "groupId": "com.github.stephengold",
+            "artifactId": "Libbulletjme-MacOSX64",
             "version": "22.0.3"
         },
         {

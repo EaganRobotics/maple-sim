@@ -74,7 +74,7 @@ public class JoltPhysicsEngine implements PhysicsEngine {
 
     /** Creates a Jolt physics engine with default configuration. */
     public JoltPhysicsEngine() {
-        this(JoltConfig.defaultConfig());
+        this.config = JoltConfig.defaultConfig();
     }
 
     /**
@@ -88,6 +88,13 @@ public class JoltPhysicsEngine implements PhysicsEngine {
 
     @Override
     public void initialize() {
+        if (edu.wpi.first.wpilibj.RobotBase.isReal()) {
+            throw new IllegalStateException(
+                    "CRITICAL: 3D Physics Engines (Jolt/Bullet) CANNOT be executed on the RoboRIO. "
+                            + "They rely on un-compiled heavy native binaries and require heavy multi-threading. "
+                            + "Please ensure your physics engine instantiation is wrapped in `if (RobotBase.isSimulation())`.");
+        }
+
         loadLibrary();
 
         // Start auto-cleaner for native memory management
@@ -126,11 +133,26 @@ public class JoltPhysicsEngine implements PhysicsEngine {
         tempAllocator = new TempAllocatorMalloc();
 
         // Create job system with configured thread count
-        jobSystem =
-                new JobSystemThreadPool(Jolt.cMaxPhysicsJobs, Jolt.cMaxPhysicsBarriers, config.getNumWorkerThreads());
+        jobSystem = new JobSystemThreadPool(Jolt.cMaxPhysicsJobs, Jolt.cMaxPhysicsBarriers, numWorkerThreads);
 
         // Set default gravity (Z-down for FRC field)
         physicsSystem.setGravity(new Vec3(0f, 0f, -9.81f));
+    }
+
+    private int numWorkerThreads = 4;
+
+    /**
+     * Sets the number of worker threads for the physics engine.
+     *
+     * <p>Must be called before initialize().
+     *
+     * @param numWorkerThreads number of threads (default 4)
+     */
+    public void setWorkerThreadCount(int numWorkerThreads) {
+        if (physicsSystem != null) {
+            throw new IllegalStateException("Cannot set worker thread count after initialization");
+        }
+        this.numWorkerThreads = numWorkerThreads;
     }
 
     /** Loads the native Jolt library. Safe to call multiple times. */
@@ -369,6 +391,37 @@ public class JoltPhysicsEngine implements PhysicsEngine {
         // joltBody.getTrackingId() + " joltId="
         // + joltBody.getJoltBodyId() + " added=" + add + " layer="
         // + body.getObjectLayer() + " totalBodies=" + allBodies.size());
+
+        return joltBody;
+    }
+
+    @Override
+    public PhysicsBody createKinematicBody(PhysicsShape shape, Pose3d pose) {
+        JoltShape joltShape = (JoltShape) shape;
+        ConstShape constShape = joltShape.getShape();
+
+        BodyCreationSettings bcs = new BodyCreationSettings();
+        bcs.setShape(constShape);
+        bcs.setPosition(JoltBody.toRVec3(pose.getTranslation()));
+        bcs.setRotation(JoltBody.toQuat(pose.getRotation()));
+        bcs.setMotionType(EMotionType.Kinematic);
+        bcs.setObjectLayer(OBJ_LAYER_MOVING);
+        // Kinematic bodies should have good friction to push things properly
+        bcs.setFriction(0.8f);
+        bcs.setRestitution(0.0f);
+
+        Body body = bodyInterface.createBody(bcs);
+        if (body == null) {
+            throw new RuntimeException("Failed to create kinematic body");
+        }
+
+        bodyInterface.addBody(body, EActivation.Activate);
+
+        // Mass 0 for kinematic usually, or Jolt allows big mass. Jolt Kinematic implies
+        // infinite mass for collision response.
+        JoltBody joltBody = new JoltBody(body, physicsSystem, false, 0);
+        bodiesById.put(joltBody.getTrackingId(), joltBody);
+        allBodies.add(joltBody);
 
         return joltBody;
     }

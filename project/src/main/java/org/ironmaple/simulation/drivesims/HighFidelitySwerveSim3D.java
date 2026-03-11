@@ -23,9 +23,6 @@ import org.ironmaple.simulation.drivesims.latency.SensorNoiseModel;
 import org.ironmaple.simulation.drivesims.tire.PacejkaTireModel;
 import org.ironmaple.simulation.drivesims.tire.TireForceResult;
 import org.ironmaple.simulation.physics.PhysicsEngine;
-import org.ironmaple.simulation.physics.threading.HighFidelitySwervePhysicsCalculator;
-import org.ironmaple.simulation.physics.threading.SimulationState;
-import org.ironmaple.simulation.physics.threading.ThreadedPhysicsProxy;
 
 /**
  *
@@ -80,9 +77,6 @@ public class HighFidelitySwerveSim3D extends AbstractDriveTrainSimulation3D {
     private final SensorNoiseModel[] steerEncoderNoise;
     private double simulationTimeSeconds = 0.0;
 
-    // ==================== Threading Support ====================
-    private HighFidelitySwervePhysicsCalculator physicsCalculator;
-    private boolean calculatorRegistered = false;
     private Double previousBodyYaw = null;
 
     // ==================== State Tracking ====================
@@ -173,44 +167,18 @@ public class HighFidelitySwerveSim3D extends AbstractDriveTrainSimulation3D {
         // Update simulation time
         simulationTimeSeconds += SimulatedArena.getSimulationDt().in(Seconds);
 
-        // Determine threading mode
-        boolean isThreaded = arena != null && arena.isThreaded();
-        ThreadedPhysicsProxy proxy = isThreaded ? arena.getThreadedProxy() : null;
-        SimulationState state = isThreaded ? proxy.getCachedState() : null;
-
-        // Register physics calculator on first tick (threaded mode only)
-        if (isThreaded && !calculatorRegistered && proxy != null) {
-            registerPhysicsCalculator(proxy);
-        }
-
-        // Get current pose and velocities
-        Pose3d pose3d;
-        Translation3d linearVel;
-
-        int bodyId = physicsBody.getBodyId();
-        if (isThreaded && state != null && bodyId >= 0) {
-            SimulationState.BodyState bodyState = state.getBodyState(bodyId);
-            if (bodyState != null) {
-                pose3d = bodyState.pose();
-                linearVel = bodyState.linearVelocity();
-            } else {
-                pose3d = physicsBody.getPose3d();
-                linearVel = physicsBody.getLinearVelocityMPS();
-            }
-        } else {
-            pose3d = physicsBody.getPose3d();
-            linearVel = physicsBody.getLinearVelocityMPS();
-        }
+        // Get current pose and velocities (Direct Access)
+        Pose3d pose3d = physicsBody.getPose3d();
+        Translation3d linearVel = physicsBody.getLinearVelocityMPS();
 
         // Update gyro
         updateGyro(pose3d);
 
-        // Process physics
-        if (isThreaded) {
-            simulateModulesThreaded(pose3d, linearVel, proxy);
-        } else {
-            simulateModulesSync(pose3d, linearVel);
-        }
+        // Process physics (Synchronous only)
+        // Process physics (Synchronous only)
+        simulateModulesSync(pose3d, linearVel);
+
+        updateMechanisms();
     }
 
     /**
@@ -310,78 +278,6 @@ public class HighFidelitySwerveSim3D extends AbstractDriveTrainSimulation3D {
     /**
      *
      *
-     * <h2>Threaded Module Simulation.</h2>
-     *
-     * <p>Updates module states and queues them for physics thread.
-     */
-    private void simulateModulesThreaded(Pose3d pose3d, Translation3d linearVel, ThreadedPhysicsProxy proxy) {
-        Rotation2d robotHeading = pose3d.getRotation().toRotation2d();
-
-        // Approximate normal force for module update
-        double robotWeightNewtons = config.robotMass.in(Kilograms) * 9.81;
-        double normalForcePerWheel = robotWeightNewtons / moduleTranslations.length;
-
-        org.dyn4j.geometry.Vector2 groundVelocity2d =
-                new org.dyn4j.geometry.Vector2(linearVel.getX(), linearVel.getY());
-
-        SwerveModuleState[] capturedStates = new SwerveModuleState[moduleSimulations.length];
-
-        for (int i = 0; i < moduleSimulations.length; i++) {
-            SwerveModuleSimulation module = moduleSimulations[i];
-
-            // Advance module simulation
-            module.updateSimulationSubTickGetModuleForce(groundVelocity2d, robotHeading, normalForcePerWheel);
-
-            // Capture state (with latency if enabled)
-            capturedStates[i] = getModuleStateWithLatency(i, module);
-        }
-
-        // Queue snapshot for physics thread
-        if (physicsCalculator != null) {
-            // physicsCalculator.setCapturedStates(capturedStates); // REMOVED: Managed via
-            // ThreadedSwerveCalculator interface and inputs queue
-
-            // Fetch latest physics results from the calculator (updated in physics thread)
-            double[] latestNormalForces = physicsCalculator.getLatestNormalForces();
-            TireForceResult[] latestTireResults = physicsCalculator.getLatestTireResults();
-
-            // Update telemetry and apply steering torques
-            for (int i = 0; i < moduleSimulations.length; i++) {
-                // Update normal force telemetry
-                double normalForceN = latestNormalForces[i];
-                lastNormalForces[i] = normalForceN;
-
-                // Update tire result telemetry
-                TireForceResult tireResult = latestTireResults[i];
-                if (tireResult == null) tireResult = TireForceResult.zero();
-                lastTireResults[i] = tireResult;
-
-                // Scrub Torque
-                // Use wheel speed as approximation for ground speed for the fade-out factor
-                double scrubTorqueNm = 0.0;
-                if (hifiConfig.enableScrubTorque) {
-                    double estimatedGroundSpeed = capturedStates[i].speedMetersPerSecond;
-                    scrubTorqueNm = calculateScrubTorque(i, normalForceN, estimatedGroundSpeed, moduleSimulations[i]);
-                }
-                lastScrubTorques[i] = scrubTorqueNm;
-
-                // Self Aligning Torque
-                double alignTorqueNm = 0.0;
-                if (hifiConfig.enableSelfAligningTorque) {
-                    alignTorqueNm = calculateSelfAligningTorque(tireResult.lateralForceNewtons(), normalForceN);
-                }
-                lastSelfAligningTorques[i] = alignTorqueNm;
-
-                // Apply Torques to Module
-                moduleSimulations[i].setSteerExternalTorque(NewtonMeters.of(scrubTorqueNm + alignTorqueNm));
-            }
-        }
-        proxy.queueSwerveInput(capturedStates);
-    }
-
-    /**
-     *
-     *
      * <h2>Calculates Suspension Force.</h2>
      */
     private SuspensionResult calculateSuspension(
@@ -469,7 +365,7 @@ public class HighFidelitySwerveSim3D extends AbstractDriveTrainSimulation3D {
      *
      * <p>Milliken, W.F. & Milliken, D.L. (1995). "Race Car Vehicle Dynamics" Ch. 5
      *
-     * @param moduleIndex module index
+     * @param moduleIndex module index (0-3)
      * @param normalForceN normal force (Fz)
      * @param groundSpeedMPS ground speed in wheel direction
      * @param module the swerve module simulation
@@ -526,21 +422,6 @@ public class HighFidelitySwerveSim3D extends AbstractDriveTrainSimulation3D {
 
         // Self-aligning torque tries to straighten the wheel
         return -lateralForceN * totalTrail;
-    }
-
-    /**
-     *
-     *
-     * <h2>Registers Physics Calculator for Threaded Mode.</h2>
-     */
-    private void registerPhysicsCalculator(ThreadedPhysicsProxy proxy) {
-        double tickPeriodSeconds = arena.getPhysicsTickPeriodSeconds()
-                / org.ironmaple.simulation.SimulatedArena3D.getPhysicsSubTicksPerFrame();
-
-        physicsCalculator =
-                new HighFidelitySwervePhysicsCalculator(physicsBody, config, hifiConfig, tireModel, tickPeriodSeconds);
-        proxy.registerCalculator(physicsCalculator);
-        calculatorRegistered = true;
     }
 
     /**

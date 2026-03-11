@@ -40,6 +40,13 @@ public class BulletPhysicsEngine implements PhysicsEngine {
     public synchronized void initialize() {
         if (initialized) return;
 
+        if (edu.wpi.first.wpilibj.RobotBase.isReal()) {
+            throw new IllegalStateException(
+                    "CRITICAL: 3D Physics Engines (Jolt/Bullet) CANNOT be executed on the RoboRIO. "
+                            + "They rely on un-compiled heavy native binaries and require heavy multi-threading. "
+                            + "Please ensure your physics engine instantiation is wrapped in `if (RobotBase.isSimulation())`.");
+        }
+
         loadLibrary();
 
         // Create the physics space with DBVT broadphase (good general-purpose)
@@ -169,6 +176,21 @@ public class BulletPhysicsEngine implements PhysicsEngine {
         rigidBody.setPhysicsRotation(toQuaternion(pose.getRotation()));
 
         BulletBody body = new BulletBody(rigidBody, true);
+        return body;
+    }
+
+    @Override
+    public synchronized PhysicsBody createKinematicBody(PhysicsShape shape, Pose3d pose) {
+        BulletShape bulletShape = (BulletShape) shape;
+        // Mass of 0 = static/kinematic in Bullet
+        PhysicsRigidBody rigidBody = new PhysicsRigidBody(bulletShape.getCollisionShape(), 0f);
+
+        rigidBody.setPhysicsLocation(toVector3f(pose.getTranslation()));
+        rigidBody.setPhysicsRotation(toQuaternion(pose.getRotation()));
+        rigidBody.setKinematic(true);
+
+        BulletBody body = new BulletBody(rigidBody, false);
+        addBody(body);
         return body;
     }
 
