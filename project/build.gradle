@@ -46,9 +46,13 @@ dependencies {
     runtimeOnly("com.github.stephengold:jolt-jni-Linux64:3.5.2:ReleaseDp")
     runtimeOnly("com.github.stephengold:jolt-jni-Windows64:3.5.2:ReleaseDp")
     runtimeOnly("com.github.stephengold:jolt-jni-MacOSX_ARM64:3.5.2:ReleaseDp")
+    runtimeOnly("com.github.stephengold:jolt-jni-MacOSX64:3.5.2:ReleaseDp")
 
     // 3D Physics Engine (Bullet via JNI) - LEGACY FALLBACK
-    implementation("com.github.stephengold:Libbulletjme-MacOSX_ARM64:22.0.3")
+    implementation("com.github.stephengold:Libbulletjme-Windows64:22.0.3")
+    runtimeOnly("com.github.stephengold:Libbulletjme-Linux64:22.0.3")
+    runtimeOnly("com.github.stephengold:Libbulletjme-MacOSX_ARM64:22.0.3")
+    runtimeOnly("com.github.stephengold:Libbulletjme-MacOSX64:22.0.3")
 
     // JSnapLoader for native library loading:
     api 'io.github.electrostat-lab:snaploader:1.1.1-stable'
@@ -68,6 +72,17 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-core:2.15.2"
     implementation "com.fasterxml.jackson.core:jackson-databind:2.15.2"
     implementation 'edu.wpi.first.thirdparty.frc2024.opencv:opencv-java:4.8.0-2'
+}
+
+def bundledJniJars = configurations.runtimeClasspath.filter {
+    it.name.contains('jolt-jni') || it.name.contains('Libbulletjme')
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        bundledJniJars.collect { zipTree(it) }
+    }
 }
 
 // Set up exports properly

@@ -2,7 +2,7 @@ apply plugin: 'maven-publish'
 
 ext.licenseFile = files("$rootDir/LICENSE.txt")
 
-def pubVersion = '1.0.0'
+def pubVersion = '1.0.1'
 
 def outputsFolder = file("$buildDir/outputs")
 
@@ -109,7 +109,16 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 task outputJar(type: Jar, dependsOn: classes) {
     archiveBaseName = javaBaseName
     destinationDirectory = outputsFolder
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from sourceSets.main.output
+    def bundledJniJars = configurations.runtimeClasspath.filter {
+        it.name.contains('jolt-jni') || it.name.contains('Libbulletjme')
+    }
+    from {
+        bundledJniJars.collect {
+            zipTree(it)
+        }
+    }
 }
 
 task outputSourcesJar(type: Jar, dependsOn: classes) {
